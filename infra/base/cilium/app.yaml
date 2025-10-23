@@ -1,0 +1,26 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: cilium
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  
+  source:
+    repoURL: https://github.com/paul2126/homelab.git
+    targetRevision: main
+    path: infra/overlays/prod/cilium
+  
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: kube-system
+
+  
+  ignoreDifferences:
+    - group: ""
+      kind: ConfigMap
+      name: cilium-config
+      jsonPointers:
+        - /data
