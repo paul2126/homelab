@@ -16,4 +16,4 @@ spec:
     directory:
       recurse: true
       include: '**/app.yaml' # only include app.yaml files in subdirectories
-      exclude: 'top-level.yaml''
+      exclude: 'top-level.yaml' # exclude this top-level file
