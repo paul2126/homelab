@@ -1,0 +1,18 @@
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  namespace: argocd
+  name: top-level
+spec:
+  project: default
+  destination:
+    name: in-cluster
+    namespace: argocd
+  source:
+    repoURL: https://github.com/paul2126/homelab.git
+    targetRevision: main
+    path: infra/base
+    directory:
+      recurse: true
+      include: '*/app.yaml' # only include app.yaml files in subdirectories
