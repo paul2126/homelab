@@ -15,5 +15,3 @@ spec:
     repoURL: https://github.com/paul2126/homelab.git
     targetRevision: main
     path: infra/overlays/prod/argocd
-    kustomize:
-      buildOptions: --enable-helm  # Enable Helm support
