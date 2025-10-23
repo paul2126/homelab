@@ -3,6 +3,10 @@ kind: Kustomization
 
 namespace: kube-system
 
+resources:
+  - loadbalancer-ippool.yaml
+  - l2-announcement-policy.yaml
+
 helmCharts:
   - name: cilium
     repo: https://helm.cilium.io/

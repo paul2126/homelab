@@ -1,4 +1,3 @@
-# Base Cilium configuration
 operator:
   replicas: 2
   
@@ -23,3 +22,11 @@ hubble:
 ingressController:
   enabled: false
   default: false
+
+# Enable L2 announcements for LoadBalancer services
+l2announcements:
+  enabled: true
+
+# Specify network interface(s) for L2 announcements
+# Use "eth+" for all eth interfaces, or specify exact interface like "ens18"
+devices: "eth+"
