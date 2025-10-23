@@ -15,4 +15,4 @@ spec:
     path: infra/base
     directory:
       recurse: true
-      include: '*/app.yaml' # only include app.yaml files in subdirectories
+      include: '**/app.yaml' # only include app.yaml files in subdirectories
