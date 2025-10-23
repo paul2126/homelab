@@ -3,9 +3,12 @@ kind: Kustomization
 
 namespace: argocd
 
-resources:
-  - argocd-cm.yaml  # Add this line
-  
+patches:
+  - path: argocd-cm.yaml
+    target:
+      kind: ConfigMap
+      name: argocd-cm
+      
 helmCharts:
   - name: argo-cd
     repo: https://argoproj.github.io/argo-helm
