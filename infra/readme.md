@@ -13,7 +13,8 @@ Unified configuration repository for clusters.
     │       └── app-values-base.yaml # Base values for the Helm Chart
     │
     └── overlays/                 # Environment-Specific Customizations
-        ├── prod/
-            ├── kustomization.yaml   # <-- 2. DEPLOYMENT TARGET (References Base & Patches)
-            └── prod-patch-storage.yaml # Patch specific resources (e.g., set storageClass)
+        └── prod/
+            └── app/
+                ├── kustomization.yaml   # <-- 2. DEPLOYMENT TARGET (References Base & Patches)
+                └── prod-patch-storage.yaml # Patch specific resources (e.g., set storageClass)
 ```
