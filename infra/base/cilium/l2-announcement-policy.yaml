@@ -7,3 +7,4 @@ spec:
   loadBalancerIPs: true
   interfaces:
   - ^eth.*
+  - ^ens.*
