@@ -1,0 +1,20 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: hami
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/paul2126/homelab.git
+    targetRevision: HEAD
+    path: infra/base/hami
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: hami
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+    - CreateNamespace=true
