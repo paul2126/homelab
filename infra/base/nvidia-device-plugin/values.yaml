@@ -12,7 +12,5 @@ affinity:
           values:
           - "true"
 
-# Override device discovery strategy
-config:
-  flags:
-    deviceDiscoveryStrategy: nvml
+# Override device discovery strategy - use nvml instead of auto
+deviceDiscoveryStrategy: nvml
