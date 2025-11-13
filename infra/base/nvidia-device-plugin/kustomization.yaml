@@ -9,4 +9,4 @@ helmCharts:
     releaseName: nvdp
     namespace: nvidia-device-plugin
     version: 0.18.0
-    # valuesFile: values.yaml
+    valuesFile: values.yaml

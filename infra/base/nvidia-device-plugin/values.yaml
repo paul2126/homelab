@@ -1,14 +1,13 @@
 # NVIDIA Device Plugin configuration values
-# Add your custom configuration here
 
-# Example configurations:
-# nodeSelector:
-#   nvidia.com/gpu: "true"
-#
-# affinity:
-#   nodeAffinity:
-#     requiredDuringSchedulingIgnoredDuringExecution:
-#       nodeSelectorTerms:
-#       - matchExpressions:
-#         - key: nvidia.com/gpu
-#           operator: Exists
+# Disable the default GPU detection affinity rules
+# This allows the plugin to run on nodes without automatic GPU detection
+affinity:
+  nodeAffinity:
+    requiredDuringSchedulingIgnoredDuringExecution:
+      nodeSelectorTerms:
+      - matchExpressions:
+        - key: feature.node.kubernetes.io/gpu
+          operator: In
+          values:
+          - "true"
