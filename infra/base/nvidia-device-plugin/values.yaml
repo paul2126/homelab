@@ -11,3 +11,8 @@ affinity:
           operator: In
           values:
           - "true"
+
+# Override device discovery strategy
+config:
+  flags:
+    deviceDiscoveryStrategy: nvml
