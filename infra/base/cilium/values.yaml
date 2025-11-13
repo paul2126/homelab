@@ -29,4 +29,4 @@ l2announcements:
 
 # Specify network interface(s) for L2 announcements
 # Use "eth+" for all eth interfaces, or specify exact interface like "ens18"
-devices: "eth+"
+devices: "eth+ ens+"
