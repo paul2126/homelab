@@ -21,6 +21,7 @@ ingress:
       hosts:
         - n8n.yourdomain.com
 
-persistence:
-  enabled: true
-  size: 5Gi
+main:
+  persistence:
+    enabled: true
+    size: 5Gi
