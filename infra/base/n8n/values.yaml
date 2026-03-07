@@ -25,3 +25,4 @@ main:
   persistence:
     enabled: true
     size: 5Gi
+    storageClass: local-path
