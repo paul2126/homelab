@@ -1,4 +1,6 @@
 # testing purpose
+existingEncryptionKeySecret: n8n-encryption-key
+
 db:
   type: postgresdb
 
