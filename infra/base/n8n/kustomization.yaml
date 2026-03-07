@@ -1,0 +1,12 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: n8n
+
+helmCharts:
+  - name: n8n
+    repo: https://community-charts.github.io/helm-charts
+    releaseName: n8n
+    namespace: n8n
+    version: 1.16.29   # pin to current latest
+    valuesFile: values.yaml

@@ -1,0 +1,23 @@
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  namespace: n8n
+  name: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+
+  source:
+    repoURL: https://github.com/paul2126/homelab.git
+    targetRevision: main
+    path: infra/overlays/prod/n8n
+
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: n8n
+
+  syncPolicy:
+    syncOptions:
+    - CreateNamespace=true

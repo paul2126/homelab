@@ -1,0 +1,26 @@
+# testing purpose
+db:
+  type: postgresdb
+
+postgresql:
+  enabled: true
+  auth:
+    database: n8n
+    username: n8n
+    existingSecret: n8n-postgres-secret   # k8s Secret with postgres-password key
+
+ingress:
+  enabled: true
+  hosts:
+    - host: n8n.yourdomain.com
+      paths:
+        - path: /
+          pathType: Prefix
+  tls:
+    - secretName: n8n-tls
+      hosts:
+        - n8n.yourdomain.com
+
+persistence:
+  enabled: true
+  size: 5Gi
