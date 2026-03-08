@@ -18,9 +18,19 @@ spec:
     namespace: kube-system
 
   
+  # Cilium continuously self-modifies cilium-config ConfigMap at runtime (e.g. node-specific configs).
+  # Using managedFieldsManagers instead of jsonPointers:/data so ArgoCD only ignores fields
+  # written by Cilium's own controllers, while still applying our Helm value changes correctly.
   ignoreDifferences:
     - group: ""
       kind: ConfigMap
       name: cilium-config
-      jsonPointers:
-        - /data
+      managedFieldsManagers:
+        - cilium-operator
+        - cilium
+
+  syncPolicy:
+    syncOptions:
+      # Required for managedFieldsManagers to work correctly — tracks field ownership
+      # per manager so ArgoCD and Cilium don't clobber each other's fields.
+      - ServerSideApply=true
