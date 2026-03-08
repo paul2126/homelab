@@ -28,6 +28,11 @@ spec:
       managedFieldsManagers:
         - cilium-operator
         - cilium
+    # cilium-ingress Endpoints is auto-created by Cilium's ingress controller.
+    # ArgoCD excludes all Endpoints globally by default, so this suppresses the warning.
+    - group: ""
+      kind: Endpoints
+      name: cilium-ingress
 
   syncPolicy:
     syncOptions:
