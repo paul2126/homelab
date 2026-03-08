@@ -20,8 +20,9 @@ hubble:
     enabled: true
 
 ingressController:
-  enabled: false
-  default: false
+  enabled: true
+  default: true
+  loadbalancerMode: shared
 
 # Enable L2 announcements for LoadBalancer services
 l2announcements:

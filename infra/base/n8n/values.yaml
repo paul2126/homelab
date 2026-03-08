@@ -1,4 +1,7 @@
 # testing purpose
+# n8n auto generates enc key on first startup and save into pvc
+# cause problem when pvc is deleted and recreated or there are multiple
+# replicas, so we use a fixed enc key and save it in k8s secret
 existingEncryptionKeySecret: n8n-encryption-key
 
 db:
@@ -17,15 +20,16 @@ postgresql:
 
 ingress:
   enabled: true
+  className: cilium
   hosts:
-    - host: n8n.yourdomain.com
+    - host: n8n.attat.org
       paths:
         - path: /
           pathType: Prefix
   tls:
     - secretName: n8n-tls
       hosts:
-        - n8n.yourdomain.com
+        - n8n.attat.org
 
 main:
   persistence:
