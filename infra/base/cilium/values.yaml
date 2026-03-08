@@ -23,6 +23,9 @@ ingressController:
   enabled: true
   default: true
   loadbalancerMode: shared
+  hostNetwork:
+    enabled: true
+    sharedListenerPort: 8080
 
 # Enable L2 announcements for LoadBalancer services
 l2announcements:
