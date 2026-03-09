@@ -7,7 +7,7 @@ spec:
   template:
     spec:
       containers:
-        - name: n8n
+        - name: n8n-main
           env:
             - name: N8N_SECURE_COOKIE
               value: "false"
