@@ -12,6 +12,7 @@ postgresql:
   auth:
     database: n8n
     username: n8n
+    existingSecret: n8n-postgresql
   primary:
     persistence:
       enabled: true
