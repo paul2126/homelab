@@ -3,3 +3,6 @@ kind: Kustomization
 
 resources:
   - ../../../base/n8n
+
+patches:
+  - path: n8n-env-patch.yaml
