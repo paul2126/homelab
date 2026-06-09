@@ -40,16 +40,18 @@ spec:
             - half
             - --served-model-name
             - llama-3.1-8b                                         # the model id clients use
+            - --swap-space
+            - "2"                                                  # GiB host RAM for CPU KV offload (default 4)
           ports:
             - name: http
               containerPort: 8000
           resources:
             requests:
-              cpu: "4"
-              memory: 16Gi
+              cpu: "2"
+              memory: 6Gi      # the 8B model lives in GPU VRAM; host RAM is just the process
             limits:
               nvidia.com/gpu: 1
-              memory: 24Gi
+              memory: 10Gi
           volumeMounts:
             - name: hf-cache
               mountPath: /root/.cache/huggingface

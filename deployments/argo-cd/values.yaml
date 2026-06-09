@@ -3,3 +3,10 @@ argo-cd:
   server:
     service:
       type: LoadBalancer
+  # Unused components — disabled to save RAM (no SSO, no ApplicationSets, no notifications).
+  dex:
+    enabled: false
+  applicationSet:
+    enabled: false
+  notifications:
+    enabled: false
