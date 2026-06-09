@@ -7,6 +7,8 @@ kind: Application
 metadata:
   name: cilium-lb
   namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
 spec:
   project: default
   source:
