@@ -40,8 +40,6 @@ spec:
             - half
             - --served-model-name
             - llama-3.1-8b                                         # the model id clients use
-            - --swap-space
-            - "2"                                                  # GiB host RAM for CPU KV offload (default 4)
           ports:
             - name: http
               containerPort: 8000
