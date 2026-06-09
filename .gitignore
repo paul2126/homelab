@@ -1,0 +1,5 @@
+# Helm dependency artifacts — ArgoCD resolves these at render time from Chart.lock.
+**/charts/
+**/*.tgz
+
+.DS_Store

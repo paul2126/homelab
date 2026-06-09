@@ -1,0 +1,19 @@
+# Values for the upstream gpu-operator subchart are nested under its dependency name.
+gpu-operator:
+  # The operator installs and manages the NVIDIA driver on the GPU node (no host prep).
+  # First rollout blacklists nouveau, builds/loads the module, and may reboot the node once.
+  driver:
+    enabled: true
+
+  # Single consumer GPU — no Multi-Instance GPU.
+  migManager:
+    enabled: false
+
+  # No Prometheus Operator in the cluster yet, so don't emit a ServiceMonitor.
+  dcgmExporter:
+    serviceMonitor:
+      enabled: false
+
+  # toolkit, devicePlugin, nfd (node-feature-discovery) and gfd (GPU feature discovery)
+  # are enabled by default — they provide the nvidia containerd runtime, the nvidia.com/gpu
+  # resource, and GPU node labels. This replaces the (parked) hami + nvidia-device-plugin.

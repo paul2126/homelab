@@ -1,0 +1,12 @@
+# Values for the upstream nvidia-device-plugin subchart are nested under its dependency name.
+nvidia-device-plugin:
+  # Restrict the plugin to nodes explicitly labelled as GPU nodes.
+  affinity:
+    nodeAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        nodeSelectorTerms:
+          - matchExpressions:
+              - key: feature.node.kubernetes.io/gpu
+                operator: In
+                values:
+                  - "true"

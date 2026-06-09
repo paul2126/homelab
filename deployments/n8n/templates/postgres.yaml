@@ -1,0 +1,92 @@
+# Self-managed PostgreSQL for n8n using the official, maintained postgres image.
+# Replaces the chart's bundled postgres (which ships the deprecated, archived
+# bitnamilegacy/postgresql image). n8n connects to this via externalPostgresql in
+# values.yaml. Single instance, sized for a homelab.
+apiVersion: v1
+kind: Service
+metadata:
+  name: n8n-postgresql
+  labels:
+    app.kubernetes.io/name: n8n-postgresql
+    app.kubernetes.io/component: database
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: n8n-postgresql
+  ports:
+    - name: postgres
+      port: 5432
+      targetPort: postgres
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: n8n-postgresql
+  labels:
+    app.kubernetes.io/name: n8n-postgresql
+    app.kubernetes.io/component: database
+spec:
+  serviceName: n8n-postgresql
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: n8n-postgresql
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: n8n-postgresql
+        app.kubernetes.io/component: database
+    spec:
+      securityContext:
+        # Official postgres image runs as uid/gid 999; make the PVC group-writable.
+        fsGroup: 999
+      containers:
+        - name: postgres
+          image: postgres:17
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: postgres
+              containerPort: 5432
+          env:
+            - name: POSTGRES_USER
+              value: n8n
+            - name: POSTGRES_DB
+              value: n8n
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: n8n-postgresql
+                  key: password
+            # Use a subdirectory so the volume mount point itself isn't PGDATA.
+            - name: PGDATA
+              value: /var/lib/postgresql/data/pgdata
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/postgresql/data
+          readinessProbe:
+            exec:
+              command: ["pg_isready", "-U", "n8n", "-d", "n8n"]
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 5
+          livenessProbe:
+            exec:
+              command: ["pg_isready", "-U", "n8n", "-d", "n8n"]
+            initialDelaySeconds: 30
+            periodSeconds: 15
+            timeoutSeconds: 5
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              memory: 1Gi
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        storageClassName: local-path
+        resources:
+          requests:
+            storage: 8Gi

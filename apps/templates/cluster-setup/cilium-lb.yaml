@@ -1,0 +1,23 @@
+# Cilium LoadBalancer config (IP pool + L2 announcement policy) as plain manifests.
+# Cilium the CNI is installed/managed by Kubespray; this app only layers the two
+# cluster-scoped CRs so LoadBalancer IPs can be changed via git.
+# This is a directory source (no Helm chart) — ArgoCD applies every manifest in the path.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: cilium-lb
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/paul2126/homelab.git
+    targetRevision: main
+    path: deployments/cilium-lb
+  destination:
+    server: https://kubernetes.default.svc
+    # CRs are cluster-scoped; namespace is nominal (kube-system, where Cilium runs).
+    namespace: kube-system
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true

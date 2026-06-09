@@ -1,0 +1,21 @@
+# vLLM Llama 3.1 8B (4-bit AWQ) served as a directory source (plain manifests, no Helm).
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: vllm-llama
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/paul2126/homelab.git
+    targetRevision: main
+    path: deployments/vllm-llama
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: vllm
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

@@ -1,0 +1,84 @@
+# vLLM serving Llama 3.1 8B Instruct (4-bit AWQ-INT4), OpenAI-compatible API on :8000.
+# Plain manifests applied by an ArgoCD directory source (same pattern as cilium-lb).
+# Tunables (model, context length, GPU memory) live in the container args below.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: vllm-llama
+  labels:
+    app.kubernetes.io/name: vllm-llama
+spec:
+  replicas: 1
+  # Single GPU — never run two pods at once (the new pod can't get the GPU until the old
+  # one releases it).
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: vllm-llama
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: vllm-llama
+    spec:
+      # The GPU Operator's container-toolkit registers this RuntimeClass. If a CUDA error
+      # shows the GPU isn't visible in the pod, confirm the operator created it.
+      runtimeClassName: nvidia
+      containers:
+        - name: vllm
+          image: vllm/vllm-openai:v0.22.1
+          args:
+            - --model
+            - hugging-quants/Meta-Llama-3.1-8B-Instruct-AWQ-INT4   # open repo, no HF token
+            - --quantization
+            - awq                                                  # vLLM picks awq_marlin on Ampere+
+            - --max-model-len
+            - "8192"                                               # fits 12 GB comfortably
+            - --gpu-memory-utilization
+            - "0.90"
+            - --dtype
+            - half
+            - --served-model-name
+            - llama-3.1-8b                                         # the model id clients use
+          ports:
+            - name: http
+              containerPort: 8000
+          resources:
+            requests:
+              cpu: "4"
+              memory: 16Gi
+            limits:
+              nvidia.com/gpu: 1
+              memory: 24Gi
+          volumeMounts:
+            - name: hf-cache
+              mountPath: /root/.cache/huggingface
+            - name: shm
+              mountPath: /dev/shm
+          # First start pulls a 10.7 GB image + downloads (~6 GB) and loads the model — can
+          # take 10-20 min. The startupProbe gates liveness/readiness until that completes,
+          # so liveness can't kill the pod mid-load (which would restart and re-download).
+          startupProbe:
+            httpGet:
+              path: /health
+              port: http
+            periodSeconds: 15
+            failureThreshold: 80          # ~20 min budget for first pull + load
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            periodSeconds: 30
+      volumes:
+        - name: hf-cache
+          persistentVolumeClaim:
+            claimName: vllm-llama-cache
+        - name: shm
+          emptyDir:
+            medium: Memory
+            sizeLimit: 2Gi
