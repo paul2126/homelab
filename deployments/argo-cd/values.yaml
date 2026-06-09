@@ -3,10 +3,9 @@ argo-cd:
   server:
     service:
       type: LoadBalancer
-  # Unused components — disabled to save RAM (no SSO, no ApplicationSets, no notifications).
+  # Unused components — disabled to save RAM (no SSO, no notifications).
+  # (the applicationSet controller is a core component in this chart and can't be disabled.)
   dex:
-    enabled: false
-  applicationSet:
     enabled: false
   notifications:
     enabled: false
