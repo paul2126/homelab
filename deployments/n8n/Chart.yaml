@@ -1,0 +1,10 @@
+apiVersion: v2
+name: n8n
+description: n8n workflow automation (umbrella chart wrapping the upstream community n8n chart)
+type: application
+version: 0.1.0
+
+dependencies:
+  - name: n8n
+    version: 1.22.0
+    repository: https://community-charts.github.io/helm-charts

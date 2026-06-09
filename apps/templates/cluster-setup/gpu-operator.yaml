@@ -1,0 +1,32 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: gpu-operator
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/paul2126/homelab.git
+    targetRevision: main
+    path: deployments/gpu-operator
+    helm:
+      releaseName: gpu-operator
+      valueFiles:
+        - values.yaml
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: gpu-operator
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      # gpu-operator ships large CRDs (incl. ClusterPolicy); SSA avoids the client-side
+      # apply annotation size limit.
+      - ServerSideApply=true
+      # The ClusterPolicy CR is created alongside its CRD — don't hard-fail dry-run on the
+      # first sync before the CRD exists.
+      - SkipDryRunOnMissingResource=true

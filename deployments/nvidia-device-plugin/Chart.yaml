@@ -1,0 +1,10 @@
+apiVersion: v2
+name: nvidia-device-plugin
+description: NVIDIA device plugin (umbrella chart wrapping the upstream nvidia-device-plugin chart)
+type: application
+version: 0.1.0
+
+dependencies:
+  - name: nvidia-device-plugin
+    version: 0.19.2
+    repository: https://nvidia.github.io/k8s-device-plugin

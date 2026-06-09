@@ -1,0 +1,22 @@
+# Root "app of apps" for platform/infrastructure components.
+# Apply this once (kubectl apply -f) to register every Application in this folder.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: cluster-setup
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/paul2126/homelab.git
+    targetRevision: main
+    path: apps/templates/cluster-setup
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: argocd
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true

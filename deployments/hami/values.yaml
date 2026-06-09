@@ -1,0 +1,12 @@
+# Values for the upstream hami subchart are nested under its dependency name.
+hami:
+  scheduler:
+    kubeScheduler:
+      # Upstream defaults the bundled kube-scheduler to an Alibaba China mirror
+      # (registry.cn-hangzhou.aliyuncs.com), which is slow/unreachable outside China.
+      # Pull from the official registry instead. Keep the tag aligned with the chart's
+      # bundled scheduler version (ideally close to your control-plane version).
+      image:
+        registry: registry.k8s.io
+        repository: kube-scheduler
+        tag: "v1.34.0"

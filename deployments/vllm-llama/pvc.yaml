@@ -1,0 +1,14 @@
+# HuggingFace model cache — persists the downloaded AWQ weights (~6 GB) across restarts.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: vllm-llama-cache
+  labels:
+    app.kubernetes.io/name: vllm-llama
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: local-path
+  resources:
+    requests:
+      storage: 20Gi

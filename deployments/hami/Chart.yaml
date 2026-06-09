@@ -1,0 +1,10 @@
+apiVersion: v2
+name: hami
+description: HAMi GPU sharing middleware (umbrella chart wrapping the upstream hami chart)
+type: application
+version: 0.1.0
+
+dependencies:
+  - name: hami
+    version: 2.9.0
+    repository: https://project-hami.github.io/HAMi/

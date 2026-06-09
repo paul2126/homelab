@@ -1,0 +1,5 @@
+# Values for the upstream argo-cd subchart are nested under its dependency name.
+argo-cd:
+  server:
+    service:
+      type: LoadBalancer

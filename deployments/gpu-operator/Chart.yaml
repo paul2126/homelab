@@ -1,0 +1,10 @@
+apiVersion: v2
+name: gpu-operator
+description: NVIDIA GPU Operator (umbrella chart wrapping the upstream gpu-operator chart)
+type: application
+version: 0.1.0
+
+dependencies:
+  - name: gpu-operator
+    version: v26.3.2
+    repository: https://helm.ngc.nvidia.com/nvidia

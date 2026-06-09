@@ -1,0 +1,28 @@
+# ArgoCD manages itself. Manual sync (no automated block) so ArgoCD does not
+# restart itself unexpectedly mid-sync.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: argocd
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/paul2126/homelab.git
+    targetRevision: main
+    path: deployments/argo-cd
+    helm:
+      releaseName: argocd
+      valueFiles:
+        - values.yaml
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: argocd
+  syncPolicy:
+    syncOptions:
+      - CreateNamespace=true
+      # argo-cd ships large CRDs; server-side apply avoids the kubectl
+      # last-applied-configuration annotation size limit.
+      - ServerSideApply=true

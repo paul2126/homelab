@@ -1,0 +1,11 @@
+# Cilium LoadBalancer IP pool. Cilium itself (the CNI) is installed and managed by
+# Kubespray; this repo only owns the LB IPAM pool + L2 announcement policy CRs.
+# NOTE: keep `cilium_loadbalancer_ip_pools` EMPTY in Kubespray so the pool has a
+# single owner (this manifest).
+apiVersion: cilium.io/v2
+kind: CiliumLoadBalancerIPPool
+metadata:
+  name: ip-pool
+spec:
+  blocks:
+    - cidr: "192.168.1.128/25"

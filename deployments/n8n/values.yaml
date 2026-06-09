@@ -1,0 +1,43 @@
+# Values for the upstream community n8n subchart are nested under its dependency name.
+n8n:
+  # n8n auto-generates an encryption key on first startup and stores it in the PVC.
+  # That breaks if the PVC is recreated or when running multiple replicas, so we pin
+  # a fixed encryption key sourced from a Kubernetes secret.
+  existingEncryptionKeySecret: n8n-encryption-key
+
+  db:
+    type: postgresdb
+
+  # The chart's bundled postgres ships the deprecated, archived bitnamilegacy image.
+  # We disable it and run our own official-postgres StatefulSet (templates/postgres.yaml),
+  # connecting via externalPostgresql below.
+  postgresql:
+    enabled: false
+
+  externalPostgresql:
+    host: n8n-postgresql
+    port: 5432
+    username: n8n
+    database: n8n
+    # Secret must contain key `password` (the n8n DB user's password). The same secret
+    # is consumed by the postgres StatefulSet, so both sides share one credential.
+    existingSecret: n8n-postgresql
+    existingSecretPasswordKey: password
+
+  ingress:
+    enabled: true
+    className: cilium
+    hosts:
+      - host: n8n.attat.org
+        paths:
+          - path: /
+            pathType: Prefix
+
+  main:
+    persistence:
+      enabled: true
+      size: 5Gi
+      storageClass: local-path
+    # Folded in from the old kustomize overlay patch (n8n-env-patch.yaml).
+    extraEnvVars:
+      N8N_SECURE_COOKIE: "false"
