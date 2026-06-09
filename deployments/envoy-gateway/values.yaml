@@ -1,0 +1,3 @@
+# Values for the upstream gateway-helm subchart are nested under its dependency name.
+# Defaults install the Envoy Gateway controller plus the Gateway API + Envoy Gateway CRDs.
+gateway-helm: {}

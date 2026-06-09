@@ -1,0 +1,10 @@
+apiVersion: v2
+name: envoy-gateway
+description: Envoy Gateway L7 ingress (umbrella chart wrapping the upstream gateway-helm chart)
+type: application
+version: 0.1.0
+
+dependencies:
+  - name: gateway-helm
+    version: 1.8.1
+    repository: oci://docker.io/envoyproxy

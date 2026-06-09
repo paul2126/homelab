@@ -45,17 +45,19 @@ homelab/
 │       │   ├── cluster-setup-application.yaml  # root #1 (app of apps)
 │       │   ├── argo-cd.yaml                    # Application: argocd (self-managing)
 │       │   ├── cilium-lb.yaml                  # Application: cilium-lb (LB pool + L2 policy CRs)
-│       │   └── gpu-operator.yaml                # Application: gpu-operator (NVIDIA GPU stack)
+│       │   ├── gpu-operator.yaml                # Application: gpu-operator (NVIDIA GPU stack)
+│       │   └── envoy-gateway.yaml               # Application: envoy-gateway (L7 ingress)
 │       └── workloads/                           # workloads group
 │           ├── workloads-application.yaml        # root #2 (app of apps)
 │           ├── n8n.yaml                           # Application: n8n
 │           └── vllm-llama.yaml                    # Application: vllm-llama (Llama 3.1 8B serving)
 └── deployments/                                 # umbrella charts + plain-manifest dirs
-    ├── argo-cd/      { Chart.yaml, Chart.lock, values.yaml }
-    ├── cilium-lb/    { loadbalancer-ippool.yaml, l2-announcement-policy.yaml }   # plain CRs
-    ├── gpu-operator/ { Chart.yaml, Chart.lock, values.yaml }
-    ├── n8n/          { Chart.yaml, Chart.lock, values.yaml, templates/postgres.yaml }
-    ├── vllm-llama/   { deployment.yaml, service.yaml, pvc.yaml }   # plain manifests
+    ├── argo-cd/        { Chart.yaml, Chart.lock, values.yaml }
+    ├── cilium-lb/      { loadbalancer-ippool.yaml, l2-announcement-policy.yaml }   # plain CRs
+    ├── gpu-operator/   { Chart.yaml, Chart.lock, values.yaml }
+    ├── envoy-gateway/  { Chart.yaml, Chart.lock, values.yaml, templates/ (GatewayClass, Gateway, EnvoyProxy) }
+    ├── n8n/            { Chart.yaml, Chart.lock, values.yaml, templates/postgres.yaml }
+    ├── vllm-llama/     { deployment.yaml, service.yaml, pvc.yaml, httproute.yaml }   # plain manifests
     ├── hami/                 # PARKED — chart kept, no Application (superseded by gpu-operator)
     └── nvidia-device-plugin/ # PARKED — chart kept, no Application (superseded by gpu-operator)
 ```
@@ -100,6 +102,7 @@ ArgoCD **directory source** (no `Chart.yaml`).
 | argocd | argo-cd | 9.5.20 | argocd | Manual (self-managing) |
 | cilium-lb | _plain manifests_ | — | kube-system | Automated (prune + self-heal) |
 | gpu-operator | gpu-operator | v26.3.2 | gpu-operator | Automated (prune + self-heal) |
+| envoy-gateway | gateway-helm | 1.8.1 | envoy-gateway-system | Automated (prune + self-heal) |
 | n8n | n8n | 1.22.0 | n8n | Manual |
 | vllm-llama | _plain manifests_ | vllm v0.22.1 | vllm | Automated (prune + self-heal) |
 
@@ -201,11 +204,32 @@ defaults target a 12 GB GPU.
 > 4. **Ordering:** `gpu-operator` must be healthy before `vllm-llama` can schedule — vLLM
 >    stays `Pending` until `nvidia.com/gpu` is advertised, then self-resolves.
 
+## Ingress (Envoy Gateway)
+
+`deployments/envoy-gateway/` is a shared **L7 ingress** for the cluster — an umbrella chart
+wrapping `gateway-helm` (Envoy Gateway), using the **Gateway API**. It provisions one Envoy
+behind a `LoadBalancer` Service pinned to **`192.168.1.129`** (Cilium LB-IPAM), with an HTTP
+listener on `:80` that accepts `HTTPRoute`s from any namespace.
+
+Each service exposes itself by adding an `HTTPRoute` that targets the shared `homelab-gateway`.
+vLLM does this in `deployments/vllm-llama/httproute.yaml` (with a 3600s timeout so streamed
+generations aren't cut at Envoy's 15s default). External endpoint:
+
+```
+LLAMA_API_ENDPOINT=http://192.168.1.129/v1/chat/completions       # or http://vllm.attat.org/... with a DNS A-record
+LLAMA_MODEL=llama-3.1-8b
+```
+> Note: the gateway listens on **port 80** and routes to vLLM's `:8000` — so the external port
+> is 80, not 8000. To add a hostname, set `spec.hostnames` on the HTTPRoute and point a DNS
+> A-record at `192.168.1.129`. TLS is a clean add-on later (an HTTPS:443 listener + a cert).
+> n8n can also move from its (currently unused) `className: cilium` Ingress to an HTTPRoute here.
+
 ## Network
 
 | Resource | IP / Range |
 |----------|-----------|
 | LoadBalancer IP pool (`cilium-lb`) | 192.168.1.128/25 |
+| ArgoCD / Envoy gateway IPs | 192.168.1.128 / 192.168.1.129 |
 | Pod CIDR (Kubespray default) | 10.233.64.0/18 |
 | Control-plane / worker nodes | 192.168.1.31–33 / 192.168.1.34 |
 | K8s API server | 192.168.1.31:6443 |

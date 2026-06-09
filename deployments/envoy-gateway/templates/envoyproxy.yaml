@@ -1,0 +1,26 @@
+# Proxy infrastructure config for the gateway class: pin the Envoy LoadBalancer Service to a
+# stable Cilium LB-IPAM IP, and keep the proxy small for a homelab.
+apiVersion: gateway.envoyproxy.io/v1alpha1
+kind: EnvoyProxy
+metadata:
+  name: homelab-proxy-config
+  namespace: envoy-gateway-system
+spec:
+  provider:
+    type: Kubernetes
+    kubernetes:
+      envoyService:
+        type: LoadBalancer
+        # Cilium LB-IPAM honours this annotation to assign a specific IP from the pool
+        # (192.168.1.128/25). .128 is ArgoCD; pin the gateway to .129.
+        annotations:
+          lbipam.cilium.io/ips: "192.168.1.129"
+      envoyDeployment:
+        replicas: 1
+        container:
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              memory: 512Mi

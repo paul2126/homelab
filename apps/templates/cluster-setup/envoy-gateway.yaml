@@ -1,24 +1,28 @@
-# vLLM Llama 3.1 8B (4-bit AWQ) served as a directory source (plain manifests, no Helm).
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
-  name: vllm-llama
+  name: envoy-gateway
   namespace: argocd
 spec:
   project: default
   source:
     repoURL: https://github.com/paul2126/homelab.git
     targetRevision: main
-    path: deployments/vllm-llama
+    path: deployments/envoy-gateway
+    helm:
+      releaseName: envoy-gateway
+      valueFiles:
+        - values.yaml
   destination:
     server: https://kubernetes.default.svc
-    namespace: vllm
+    namespace: envoy-gateway-system
   syncPolicy:
     automated:
       prune: true
       selfHeal: true
     syncOptions:
       - CreateNamespace=true
-      # The HTTPRoute needs the Gateway API CRD (installed by the envoy-gateway app) to exist
-      # first — don't hard-fail dry-run before then.
+      # Gateway API + Envoy Gateway CRDs are large; SSA avoids the client-side apply limit.
+      - ServerSideApply=true
+      # GatewayClass/Gateway/EnvoyProxy CRs are applied alongside their CRDs.
       - SkipDryRunOnMissingResource=true
