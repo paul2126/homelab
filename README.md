@@ -19,7 +19,7 @@ Two root "app of apps" Applications (applied once with kubectl):
    apps/templates/workloads/workloads-application.yaml           (workloads)
         │  each syncs its own folder of plain Application manifests
         ▼
-   apps/templates/cluster-setup/hami.yaml    ──► deployments/hami       (Helm umbrella chart)
+   apps/templates/cluster-setup/gpu-operator.yaml ──► deployments/gpu-operator (Helm umbrella chart)
    apps/templates/cluster-setup/cilium-lb.yaml ► deployments/cilium-lb  (plain CR manifests)
    ...                                        ──► ...
         │
