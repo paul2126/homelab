@@ -34,12 +34,12 @@ spec:
             - awq_marlin                                           # Marlin kernels (Ampere+); generic "awq" is ~10x slower (compute-bound dequant)
             # Speculative decoding (EAGLE3 draft head) — the main per-request decode speedup
             # (~1.5-2.5x): it accepts several tokens per weight-read, breaking the single-stream
-            # memory-bandwidth roofline. disable_by_batch_size auto-disables speculation under heavy
-            # concurrency so aggregate throughput isn't hurt. If EAGLE3 fails at boot on the AWQ
-            # target, swap the value to the zero-VRAM n-gram fallback:
-            #   {"method":"ngram","num_speculative_tokens":5,"prompt_lookup_max":4,"prompt_lookup_min":2,"disable_by_batch_size":8}
+            # memory-bandwidth roofline. (vLLM 0.22.1's SpeculativeConfig has no disable_by_batch_size
+            # key — the V1 engine schedules speculation internally.) If EAGLE3 fails at boot on the
+            # AWQ target, swap the value to the zero-VRAM n-gram fallback:
+            #   {"method":"ngram","num_speculative_tokens":5,"prompt_lookup_max":4,"prompt_lookup_min":2}
             - --speculative-config
-            - '{"method":"eagle3","model":"yuhuili/EAGLE3-LLaMA3.1-Instruct-8B","num_speculative_tokens":3,"disable_by_batch_size":8}'
+            - '{"method":"eagle3","model":"yuhuili/EAGLE3-LLaMA3.1-Instruct-8B","num_speculative_tokens":3}'
             - --max-model-len
             - "4096"                                               # was 8192; ≤4096 fits our requests → ~2x concurrency + KV headroom for the draft head
             - --gpu-memory-utilization
