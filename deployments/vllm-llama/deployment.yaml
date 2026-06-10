@@ -32,10 +32,20 @@ spec:
             - hugging-quants/Meta-Llama-3.1-8B-Instruct-AWQ-INT4   # open repo, no HF token
             - --quantization
             - awq_marlin                                           # Marlin kernels (Ampere+); generic "awq" is ~10x slower (compute-bound dequant)
+            # Speculative decoding (EAGLE3 draft head) — the main per-request decode speedup
+            # (~1.5-2.5x): it accepts several tokens per weight-read, breaking the single-stream
+            # memory-bandwidth roofline. disable_by_batch_size auto-disables speculation under heavy
+            # concurrency so aggregate throughput isn't hurt. If EAGLE3 fails at boot on the AWQ
+            # target, swap the value to the zero-VRAM n-gram fallback:
+            #   {"method":"ngram","num_speculative_tokens":5,"prompt_lookup_max":4,"prompt_lookup_min":2,"disable_by_batch_size":8}
+            - --speculative-config
+            - '{"method":"eagle3","model":"yuhuili/EAGLE3-LLaMA3.1-Instruct-8B","num_speculative_tokens":3,"disable_by_batch_size":8}'
             - --max-model-len
-            - "8192"                                               # fits 12 GB comfortably
+            - "4096"                                               # was 8192; ≤4096 fits our requests → ~2x concurrency + KV headroom for the draft head
             - --gpu-memory-utilization
-            - "0.90"
+            - "0.95"                                               # was 0.90; reclaims the CUDA-graph profiler reservation (the log notes 0.90 ≈ effective 0.846)
+            - --max-num-seqs
+            - "32"                                                 # was default 1024; right-size to KV capacity + shrink CUDA-graph capture (more free VRAM)
             - --dtype
             - half
             - --served-model-name
