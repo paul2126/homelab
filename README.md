@@ -47,7 +47,8 @@ homelab/
 │       │   ├── cilium-lb.yaml                  # Application: cilium-lb (LB pool + L2 policy CRs)
 │       │   ├── gpu-operator.yaml                # Application: gpu-operator (NVIDIA GPU stack)
 │       │   ├── envoy-gateway.yaml               # Application: envoy-gateway (L7 ingress)
-│       │   └── monitoring.yaml                  # Application: monitoring (VictoriaMetrics + Grafana)
+│       │   ├── monitoring.yaml                  # Application: monitoring (VictoriaMetrics + Grafana)
+│       │   └── external-secrets.yaml            # Application: external-secrets (ESO + Infisical store)
 │       └── workloads/                           # workloads group
 │           ├── workloads-application.yaml        # root #2 (app of apps)
 │           ├── n8n.yaml                           # Application: n8n
@@ -64,6 +65,7 @@ homelab/
     ├── monitoring/     { Chart.yaml, Chart.lock, values.yaml, dashboards/, templates/ (VMServiceScrape, HTTPRoute, dashboard CM) }
     ├── infisical/      { Chart.yaml, Chart.lock, values.yaml, templates/ (postgres, redis, httproute) }
     ├── immich/         { Chart.yaml, Chart.lock, values.yaml, templates/ (postgres, library-nfs, httproute) }
+    ├── external-secrets/ { Chart.yaml, Chart.lock, values.yaml, templates/ (Infisical ClusterSecretStore) }
     ├── hami/                 # PARKED — chart kept, no Application (superseded by gpu-operator)
     └── nvidia-device-plugin/ # PARKED — chart kept, no Application (superseded by gpu-operator)
 ```
@@ -103,15 +105,20 @@ ArgoCD **directory source** (no `Chart.yaml`).
 
 ## Applications
 
+**Every child Application is manual-sync** — deploys happen only on an explicit sync, so nothing
+rolls out (or self-heals/prunes) on its own. The two app-of-apps **roots** stay automated so new
+app files still register themselves; the child apps they create then wait for a manual sync.
+
 | App | Chart | Version | Namespace | Sync |
 |-----|-------|---------|-----------|------|
 | argocd | argo-cd | 9.5.20 | argocd | Manual (self-managing) |
-| cilium-lb | _plain manifests_ | — | kube-system | Automated (prune + self-heal) |
-| gpu-operator | gpu-operator | v26.3.2 | gpu-operator | Automated (prune + self-heal) |
-| envoy-gateway | gateway-helm | 1.8.1 | envoy-gateway-system | Automated (prune + self-heal) |
+| cilium-lb | _plain manifests_ | — | kube-system | Manual |
+| gpu-operator | gpu-operator | v26.3.2 | gpu-operator | Manual |
+| envoy-gateway | gateway-helm | 1.8.1 | envoy-gateway-system | Manual |
+| external-secrets | external-secrets | 2.6.0 | external-secrets | Manual |
+| monitoring | victoria-metrics-k8s-stack | 0.82.0 | monitoring | Manual |
 | n8n | n8n | 1.22.0 | n8n | Manual |
-| vllm-llama | _plain manifests_ | vllm v0.22.1 | vllm | Automated (prune + self-heal) |
-| monitoring | victoria-metrics-k8s-stack | 0.82.0 | monitoring | Automated (prune + self-heal) |
+| vllm-llama | _plain manifests_ | vllm v0.22.1 | vllm | Manual |
 | infisical | infisical-standalone | 1.9.0 | infisical | Manual |
 | immich | immich | 0.12.0 | immich | Manual |
 
@@ -231,6 +238,49 @@ kubectl create secret generic immich-postgresql -n immich \
 > 2. Ensure the NFS export allows the worker subnet and that the NFS client (`nfs-common`) is
 >    installed on the nodes — otherwise the `immich-library` PV won't mount and immich-server
 >    stays `Pending`.
+
+> **Rotate the bootstrap secrets.** Any values generated/displayed during setup should be treated
+> as compromised — see [`docs/secret-rotation.md`](docs/secret-rotation.md) for the per-secret
+> rotation procedure (including the Infisical `ENCRYPTION_KEY`).
+
+## Secrets management (External Secrets + Infisical)
+
+`deployments/external-secrets/` deploys the **External Secrets Operator** (ESO) and a cluster-wide
+`ClusterSecretStore` named `infisical` that reads from the in-cluster Infisical
+(`http://infisical.infisical.svc.cluster.local:8080/api`). Once it's set up, any app can pull its
+secrets from Infisical via an `ExternalSecret` instead of a hand-created `kubectl` Secret.
+
+The `ClusterSecretStore` is **gated off** (`infisical.enabled: false`) until Infisical is
+configured — it can't authenticate before a machine identity exists. To activate:
+
+1. Sync the `external-secrets` Application (installs ESO + its CRDs).
+2. In Infisical: create a project, then a **Machine Identity** with **Universal Auth**; give it
+   **read** access to that project. Copy its Client ID + Client Secret.
+3. Store the creds (kept out of Git):
+   ```bash
+   kubectl -n external-secrets create secret generic infisical-universal-auth \
+     --from-literal=clientId='<client-id>' --from-literal=clientSecret='<client-secret>'
+   ```
+4. In `deployments/external-secrets/values.yaml` set `infisical.enabled: true` and fill
+   `projectSlug` / `environmentSlug`, then re-sync `external-secrets`.
+
+Apps then consume Infisical secrets like this (materialises a normal K8s Secret ESO keeps in sync):
+
+```yaml
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata: { name: my-app, namespace: my-app }
+spec:
+  refreshInterval: 1h
+  secretStoreRef: { kind: ClusterSecretStore, name: infisical }
+  target: { name: my-app }            # the K8s Secret ESO creates
+  dataFrom:
+    - find: { path: "/my-app" }       # pull everything under that Infisical path
+```
+
+> The four **bootstrap** secrets (`grafana-admin`, `infisical-postgresql`, `infisical-secrets`,
+> `infisical-universal-auth`) stay as plain k8s Secrets by necessity — Infisical and ESO must be
+> running before they can serve anything, so their own credentials can't live inside Infisical.
 
 ## GPU & LLM serving
 
