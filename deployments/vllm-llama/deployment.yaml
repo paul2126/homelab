@@ -31,7 +31,7 @@ spec:
             - --model
             - hugging-quants/Meta-Llama-3.1-8B-Instruct-AWQ-INT4   # open repo, no HF token
             - --quantization
-            - awq                                                  # vLLM picks awq_marlin on Ampere+
+            - awq_marlin                                           # Marlin kernels (Ampere+); generic "awq" is ~10x slower (compute-bound dequant)
             - --max-model-len
             - "8192"                                               # fits 12 GB comfortably
             - --gpu-memory-utilization
