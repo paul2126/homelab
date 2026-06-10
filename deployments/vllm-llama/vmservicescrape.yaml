@@ -1,0 +1,18 @@
+# Scrapes vLLM's Prometheus metrics (served on the same :8000 as the API, at /metrics) into
+# VictoriaMetrics. Exposes throughput + speculative-decode stats (vllm:spec_decode_*,
+# vllm:request/generation token counters, etc.) so they're queryable in Grafana over time.
+# The VM operator (monitoring app) ships this CRD; vmagent selects scrapes from all namespaces
+# (selectAllByDefault=true), so this works from the vllm namespace.
+apiVersion: operator.victoriametrics.com/v1beta1
+kind: VMServiceScrape
+metadata:
+  name: vllm-llama
+  labels:
+    app.kubernetes.io/name: vllm-llama
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: vllm-llama
+  endpoints:
+    - port: http
+      path: /metrics
