@@ -46,18 +46,24 @@ homelab/
 │       │   ├── argo-cd.yaml                    # Application: argocd (self-managing)
 │       │   ├── cilium-lb.yaml                  # Application: cilium-lb (LB pool + L2 policy CRs)
 │       │   ├── gpu-operator.yaml                # Application: gpu-operator (NVIDIA GPU stack)
-│       │   └── envoy-gateway.yaml               # Application: envoy-gateway (L7 ingress)
+│       │   ├── envoy-gateway.yaml               # Application: envoy-gateway (L7 ingress)
+│       │   └── monitoring.yaml                  # Application: monitoring (VictoriaMetrics + Grafana)
 │       └── workloads/                           # workloads group
 │           ├── workloads-application.yaml        # root #2 (app of apps)
 │           ├── n8n.yaml                           # Application: n8n
-│           └── vllm-llama.yaml                    # Application: vllm-llama (Llama 3.1 8B serving)
+│           ├── vllm-llama.yaml                    # Application: vllm-llama (Llama 3.1 8B serving)
+│           ├── infisical.yaml                     # Application: infisical (secrets manager)
+│           └── immich.yaml                        # Application: immich (photos; library on TrueNAS)
 └── deployments/                                 # umbrella charts + plain-manifest dirs
     ├── argo-cd/        { Chart.yaml, Chart.lock, values.yaml }
     ├── cilium-lb/      { loadbalancer-ippool.yaml, l2-announcement-policy.yaml }   # plain CRs
     ├── gpu-operator/   { Chart.yaml, Chart.lock, values.yaml }
     ├── envoy-gateway/  { Chart.yaml, Chart.lock, values.yaml, templates/ (GatewayClass, Gateway, EnvoyProxy) }
-    ├── n8n/            { Chart.yaml, Chart.lock, values.yaml, templates/postgres.yaml }
+    ├── n8n/            { Chart.yaml, Chart.lock, values.yaml, templates/ (postgres, httproute) }
     ├── vllm-llama/     { deployment.yaml, service.yaml, pvc.yaml, httproute.yaml }   # plain manifests
+    ├── monitoring/     { Chart.yaml, Chart.lock, values.yaml, dashboards/, templates/ (VMServiceScrape, HTTPRoute, dashboard CM) }
+    ├── infisical/      { Chart.yaml, Chart.lock, values.yaml, templates/ (postgres, redis, httproute) }
+    ├── immich/         { Chart.yaml, Chart.lock, values.yaml, templates/ (postgres, library-nfs, httproute) }
     ├── hami/                 # PARKED — chart kept, no Application (superseded by gpu-operator)
     └── nvidia-device-plugin/ # PARKED — chart kept, no Application (superseded by gpu-operator)
 ```
@@ -105,6 +111,9 @@ ArgoCD **directory source** (no `Chart.yaml`).
 | envoy-gateway | gateway-helm | 1.8.1 | envoy-gateway-system | Automated (prune + self-heal) |
 | n8n | n8n | 1.22.0 | n8n | Manual |
 | vllm-llama | _plain manifests_ | vllm v0.22.1 | vllm | Automated (prune + self-heal) |
+| monitoring | victoria-metrics-k8s-stack | 0.82.0 | monitoring | Automated (prune + self-heal) |
+| infisical | infisical-standalone | 1.9.0 | infisical | Manual |
+| immich | immich | 0.12.0 | immich | Manual |
 
 > **Cilium itself is not in this table** — the CNI is installed and managed by Kubespray.
 > `cilium-lb` only carries the `CiliumLoadBalancerIPPool` + `CiliumL2AnnouncementPolicy` CRs.
@@ -130,6 +139,11 @@ kubectl apply -f apps/templates/cluster-setup/cluster-setup-application.yaml
 kubectl apply -f apps/templates/workloads/workloads-application.yaml
 ```
 
+> **ArgoCD admin password:** the auto-generated `argocd-initial-admin-secret` was deleted after
+> the admin password was rotated (`kubectl -n argocd delete secret argocd-initial-admin-secret`).
+> It's a one-time bootstrap secret, not managed by Git, and isn't regenerated — log in with the
+> rotated password. If you ever need a fresh one, reset it via the ArgoCD CLI/`argocd-secret`.
+
 > For LoadBalancer IPs to work, the Cilium features must be on in Kubespray
 > (`cilium_l2announcements: true`, `cilium_kube_proxy_replacement: true`, LB-IPAM) and
 > `cilium_loadbalancer_ip_pools` left **empty** — the `cilium-lb` app owns the pool + L2
@@ -150,13 +164,19 @@ kubectl apply -f apps/templates/workloads/workloads-application.yaml
 
 ## Secrets
 
-n8n references existing secrets that are **not** stored in this repo. Create them in the
-`n8n` namespace before the workloads root syncs, or the n8n / postgres pods fail to start:
+Several apps reference existing secrets that are **not** stored in this repo. Create each app's
+secrets in its namespace **before** that app syncs, or the pods fail to start. The manual-sync
+apps (n8n, infisical, immich) won't sync until you trigger them, which gives you time to create
+these first.
 
-| Secret | Required key |
-|--------|-------------|
-| `n8n-encryption-key` | `N8N_ENCRYPTION_KEY` |
-| `n8n-postgresql` | `password` (the n8n DB user's password) |
+| Namespace | Secret | Required key(s) |
+|-----------|--------|-----------------|
+| `n8n` | `n8n-encryption-key` | `N8N_ENCRYPTION_KEY` |
+| `n8n` | `n8n-postgresql` | `password` (the n8n DB user's password) |
+| `monitoring` | `grafana-admin` | `admin-user`, `admin-password` |
+| `infisical` | `infisical-postgresql` | `password` (the infisical DB user's password) |
+| `infisical` | `infisical-secrets` | `ENCRYPTION_KEY`, `AUTH_SECRET`, `SITE_URL`, `DB_CONNECTION_URI`, `REDIS_URL` |
+| `immich` | `immich-postgresql` | `password` (the immich DB user's password) |
 
 n8n's Postgres is a self-managed `StatefulSet` using the official `postgres` image
 (`deployments/n8n/templates/postgres.yaml`); n8n connects to it via `externalPostgresql`.
@@ -169,6 +189,48 @@ kubectl create secret generic n8n-postgresql -n n8n \
 kubectl create secret generic n8n-encryption-key -n n8n \
   --from-literal=N8N_ENCRYPTION_KEY="$(openssl rand -hex 24)"
 ```
+
+**monitoring (Grafana admin):**
+
+```bash
+kubectl create namespace monitoring
+kubectl create secret generic grafana-admin -n monitoring \
+  --from-literal=admin-user=admin \
+  --from-literal=admin-password="$(openssl rand -hex 24)"
+```
+
+**infisical** — self-managed Postgres + Valkey (`deployments/infisical/templates/`); the app loads
+`infisical-secrets` via `envFrom`. `DB_CONNECTION_URI`/`REDIS_URL` point at the in-cluster
+services. SITE_URL must match the HTTPRoute host (HTTP until TLS is added):
+
+```bash
+kubectl create namespace infisical
+PGPW="$(openssl rand -hex 24)"
+kubectl create secret generic infisical-postgresql -n infisical \
+  --from-literal=password="$PGPW"
+kubectl create secret generic infisical-secrets -n infisical \
+  --from-literal=ENCRYPTION_KEY="$(openssl rand -hex 16)" \
+  --from-literal=AUTH_SECRET="$(openssl rand -base64 32)" \
+  --from-literal=SITE_URL="http://infisical.attat.org" \
+  --from-literal=DB_CONNECTION_URI="postgresql://infisical:${PGPW}@infisical-postgresql:5432/infisicalDB?sslmode=disable" \
+  --from-literal=REDIS_URL="redis://infisical-redis:6379"
+```
+
+**immich** — self-managed VectorChord Postgres (`deployments/immich/templates/postgres.yaml`);
+the `password` key is shared by the database and immich's `DB_PASSWORD`:
+
+```bash
+kubectl create namespace immich
+kubectl create secret generic immich-postgresql -n immich \
+  --from-literal=password="$(openssl rand -hex 24)"
+```
+
+> **Immich also needs the TrueNAS NFS library wired up** before its first sync:
+> 1. Fill in `library.nfs.server` and `library.nfs.path` in `deployments/immich/values.yaml`
+>    (the TrueNAS IP and the export path of the existing images dataset).
+> 2. Ensure the NFS export allows the worker subnet and that the NFS client (`nfs-common`) is
+>    installed on the nodes — otherwise the `immich-library` PV won't mount and immich-server
+>    stays `Pending`.
 
 ## GPU & LLM serving
 
@@ -191,11 +253,12 @@ n8n reaches it via its **OpenAI** node (set the Base URL to the address above). 
 defaults target a 12 GB GPU.
 
 > **Prerequisites:**
-> 1. **Storage:** a **`local-path` StorageClass must exist** — the n8n *and* vLLM PVCs depend
->    on it, but the cluster currently has **no storage provisioner at all** (`kubectl get sc`
->    is empty). Add it in **Kubespray** (`local_path_provisioner_enabled: true` in
->    `addons.yml`, then re-run) — it's cluster-level infra, so it belongs with Kubespray, not
->    an ArgoCD app. Until then no PVC binds (n8n included).
+> 1. **Storage:** the **`local-path` StorageClass** (rancher.io/local-path) is the cluster
+>    default and is provided by Kubespray (`local_path_provisioner_enabled: true` in
+>    `addons.yml`) — it's cluster-level infra, so it belongs with Kubespray, not an ArgoCD app.
+>    Most PVCs (n8n, vLLM, monitoring, the self-managed Postgres StatefulSets, immich's ML
+>    cache) bind to it. Immich's photo library is the exception — it lives on a static NFS PV
+>    pointing at TrueNAS (`deployments/immich/templates/library-nfs.yaml`), not local-path.
 > 2. **GPU arch:** the GPU needs compute capability ≥ 7.5 (Turing+) for AWQ — confirm with
 >    `nvidia-smi` once the operator is up.
 > 3. **Driver mode:** `driver.enabled: true` assumes worker-1 has **no** host NVIDIA driver.
@@ -222,7 +285,18 @@ LLAMA_MODEL=llama-3.1-8b
 > Note: the gateway listens on **port 80** and routes to vLLM's `:8000` — so the external port
 > is 80, not 8000. To add a hostname, set `spec.hostnames` on the HTTPRoute and point a DNS
 > A-record at `192.168.1.129`. TLS is a clean add-on later (an HTTPS:443 listener + a cert).
-> n8n can also move from its (currently unused) `className: cilium` Ingress to an HTTPRoute here.
+
+Apps attached to the gateway and their hostnames (point each DNS A-record at `192.168.1.129`,
+or send the IP with a matching `Host:` header):
+
+| Host | → Service:port | HTTPRoute |
+|------|----------------|-----------|
+| `n8n.attat.org` | `n8n:5678` | `deployments/n8n/templates/httproute.yaml` |
+| `grafana.attat.org` | `grafana:80` | `deployments/monitoring/templates/httproute-grafana.yaml` |
+| `infisical.attat.org` | `infisical:8080` | `deployments/infisical/templates/httproute.yaml` |
+| `immich.attat.org` | `immich-server:2283` | `deployments/immich/templates/httproute.yaml` |
+
+> n8n was migrated off the old (unused) `className: cilium` Ingress to an HTTPRoute here.
 
 ## Network
 
