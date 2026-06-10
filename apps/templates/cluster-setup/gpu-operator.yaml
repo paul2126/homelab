@@ -19,9 +19,6 @@ spec:
     server: https://kubernetes.default.svc
     namespace: gpu-operator
   syncPolicy:
-    automated:
-      prune: true
-      selfHeal: true
     syncOptions:
       - CreateNamespace=true
       # gpu-operator ships large CRDs (incl. ClusterPolicy); SSA avoids the client-side

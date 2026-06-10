@@ -19,9 +19,6 @@ spec:
     server: https://kubernetes.default.svc
     namespace: monitoring
   syncPolicy:
-    automated:
-      prune: true
-      selfHeal: true
     syncOptions:
       - CreateNamespace=true
       # The stack ships large VictoriaMetrics CRDs and big Grafana dashboard ConfigMaps; SSA

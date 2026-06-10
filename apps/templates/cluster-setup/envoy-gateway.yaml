@@ -17,9 +17,6 @@ spec:
     server: https://kubernetes.default.svc
     namespace: envoy-gateway-system
   syncPolicy:
-    automated:
-      prune: true
-      selfHeal: true
     syncOptions:
       - CreateNamespace=true
       # Gateway API + Envoy Gateway CRDs are large; SSA avoids the client-side apply limit.

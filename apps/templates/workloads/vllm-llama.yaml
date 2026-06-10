@@ -14,9 +14,6 @@ spec:
     server: https://kubernetes.default.svc
     namespace: vllm
   syncPolicy:
-    automated:
-      prune: true
-      selfHeal: true
     syncOptions:
       - CreateNamespace=true
       # The HTTPRoute needs the Gateway API CRD (installed by the envoy-gateway app) to exist

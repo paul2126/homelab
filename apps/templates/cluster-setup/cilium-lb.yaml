@@ -19,7 +19,5 @@ spec:
     server: https://kubernetes.default.svc
     # CRs are cluster-scoped; namespace is nominal (kube-system, where Cilium runs).
     namespace: kube-system
-  syncPolicy:
-    automated:
-      prune: true
-      selfHeal: true
+  # Manual sync — every app in this repo is manual so deploys happen only on an explicit sync.
+  syncPolicy: {}
