@@ -1,0 +1,16 @@
+# vLLM serving dashboard — throughput, speculative-decode speedup, latencies (TTFT/TPOT),
+# KV-cache usage, queue depth and prefix-cache hit rate. Delivered as a ConfigMap the Grafana
+# dashboard sidecar imports (label grafana_dashboard: "1"); loaded via .Files.Get so Helm doesn't
+# evaluate any dashboard placeholders. Queries target the VictoriaMetrics datasource and the
+# vllm:* metrics scraped by deployments/vllm-llama/vmservicescrape.yaml.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-dashboard-vllm
+  labels:
+    grafana_dashboard: "1"
+  annotations:
+    grafana_folder: "vLLM"
+data:
+  vllm.json: |-
+{{ .Files.Get "dashboards/vllm.json" | indent 4 }}
