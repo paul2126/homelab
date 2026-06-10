@@ -1,0 +1,37 @@
+# Static NFS volume for Immich's photo/video library, backed by the existing TrueNAS dataset.
+# A statically-provisioned PV (storageClassName "") bound 1:1 to the immich-library PVC that the
+# server mounts (immich.persistence.library.existingClaim). Reclaim policy Retain so removing the
+# PVC never deletes the TrueNAS data. Set library.nfs.{server,path} in values.yaml before syncing.
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: immich-library
+  labels:
+    app.kubernetes.io/name: immich
+    app.kubernetes.io/component: library
+spec:
+  capacity:
+    storage: {{ .Values.library.nfs.capacity }}
+  accessModes:
+    - ReadWriteMany
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: ""
+  nfs:
+    server: {{ .Values.library.nfs.server | quote }}
+    path: {{ .Values.library.nfs.path | quote }}
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: immich-library
+  labels:
+    app.kubernetes.io/name: immich
+    app.kubernetes.io/component: library
+spec:
+  accessModes:
+    - ReadWriteMany
+  storageClassName: ""
+  volumeName: immich-library
+  resources:
+    requests:
+      storage: {{ .Values.library.nfs.capacity }}

@@ -1,0 +1,91 @@
+# Self-managed PostgreSQL for Infisical using the official, maintained postgres image — replaces
+# the chart's bundled postgres (which ships the frozen bitnamilegacy/postgresql image). Infisical
+# connects to it via DB_CONNECTION_URI in the infisical-secrets secret. Single instance, homelab.
+apiVersion: v1
+kind: Service
+metadata:
+  name: infisical-postgresql
+  labels:
+    app.kubernetes.io/name: infisical-postgresql
+    app.kubernetes.io/component: database
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: infisical-postgresql
+  ports:
+    - name: postgres
+      port: 5432
+      targetPort: postgres
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: infisical-postgresql
+  labels:
+    app.kubernetes.io/name: infisical-postgresql
+    app.kubernetes.io/component: database
+spec:
+  serviceName: infisical-postgresql
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: infisical-postgresql
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: infisical-postgresql
+        app.kubernetes.io/component: database
+    spec:
+      securityContext:
+        # Official postgres image runs as uid/gid 999; make the PVC group-writable.
+        fsGroup: 999
+      containers:
+        - name: postgres
+          image: postgres:17
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: postgres
+              containerPort: 5432
+          env:
+            - name: POSTGRES_USER
+              value: infisical
+            - name: POSTGRES_DB
+              value: infisicalDB
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: infisical-postgresql
+                  key: password
+            # Use a subdirectory so the volume mount point itself isn't PGDATA.
+            - name: PGDATA
+              value: /var/lib/postgresql/data/pgdata
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/postgresql/data
+          readinessProbe:
+            exec:
+              command: ["pg_isready", "-U", "infisical", "-d", "infisicalDB"]
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 5
+          livenessProbe:
+            exec:
+              command: ["pg_isready", "-U", "infisical", "-d", "infisicalDB"]
+            initialDelaySeconds: 30
+            periodSeconds: 15
+            timeoutSeconds: 5
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              memory: 1Gi
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        storageClassName: local-path
+        resources:
+          requests:
+            storage: 8Gi

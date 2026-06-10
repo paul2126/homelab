@@ -1,0 +1,28 @@
+# Immich photo & video management. Manual sync (like n8n) because it depends on a pre-created
+# secret (immich-postgresql) and on library.nfs.{server,path} being filled in in values.yaml,
+# plus NFS client (nfs-common) being present on the nodes — see README "Secrets" / Immich notes.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: immich
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/paul2126/homelab.git
+    targetRevision: main
+    path: deployments/immich
+    helm:
+      releaseName: immich
+      valueFiles:
+        - values.yaml
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: immich
+  syncPolicy:
+    syncOptions:
+      - CreateNamespace=true
+      # The HTTPRoute needs the Gateway API CRD (from the envoy-gateway app) to exist first.
+      - SkipDryRunOnMissingResource=true

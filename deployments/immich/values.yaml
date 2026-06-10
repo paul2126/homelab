@@ -1,0 +1,56 @@
+# ─────────────────────────────────────────────────────────────────────────────────────────
+# Umbrella-owned values (consumed by templates/library-nfs.yaml — NOT the immich subchart).
+# The photo/video library lives on the TrueNAS NFS export; only small caches + Postgres
+# metadata stay on local-path. FILL THESE IN before syncing the immich Application.
+# ─────────────────────────────────────────────────────────────────────────────────────────
+library:
+  nfs:
+    server: "CHANGE_ME"        # TrueNAS IP, e.g. 192.168.1.x
+    path: "CHANGE_ME"          # NFS export path of the existing images dataset, e.g. /mnt/tank/immich
+    capacity: 1Ti              # nominal PV capacity (NFS doesn't enforce it)
+
+# ─────────────────────────────────────────────────────────────────────────────────────────
+# Values for the upstream immich subchart are nested under its dependency name `immich`.
+# (The immich chart ALSO has its own top-level `immich:` key, hence the double nesting below.)
+# ─────────────────────────────────────────────────────────────────────────────────────────
+immich:
+  # Shared base merged into both the server and machine-learning components.
+  controllers:
+    main:
+      containers:
+        main:
+          image:
+            tag: v2.6.3
+          # DB connection (REDIS_HOSTNAME + IMMICH_MACHINE_LEARNING_URL are set by the chart).
+          # Points at the self-managed VectorChord Postgres (templates/postgres.yaml).
+          env:
+            DB_HOSTNAME: immich-postgresql
+            DB_USERNAME: immich
+            DB_DATABASE_NAME: immich
+            DB_PASSWORD:
+              valueFrom:
+                secretKeyRef:
+                  name: immich-postgresql
+                  key: password
+
+  # The immich chart's own config key. The library volume must be a pre-existing PVC — the
+  # chart never auto-creates it; we provide it via the static NFS PV/PVC (templates/library-nfs.yaml).
+  immich:
+    persistence:
+      library:
+        existingClaim: immich-library
+
+  # In-cluster Redis (chart's embedded Valkey — non-Bitnami). Service: immich-valkey:6379.
+  valkey:
+    enabled: true
+
+  # machine-learning runs on CPU (default image, no -cuda). Persist the model cache on a small
+  # local-path PVC so CLIP/face models aren't re-downloaded on every restart.
+  machine-learning:
+    persistence:
+      cache:
+        enabled: true
+        type: persistentVolumeClaim
+        accessMode: ReadWriteOnce
+        storageClass: local-path
+        size: 5Gi

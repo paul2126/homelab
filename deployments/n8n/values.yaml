@@ -24,14 +24,10 @@ n8n:
     existingSecret: n8n-postgresql
     existingSecretPasswordKey: password
 
+  # External access is via an Envoy Gateway HTTPRoute (templates/httproute.yaml), not the
+  # old Cilium Ingress. The chart's built-in Ingress is disabled so the two don't conflict.
   ingress:
-    enabled: true
-    className: cilium
-    hosts:
-      - host: n8n.attat.org
-        paths:
-          - path: /
-            pathType: Prefix
+    enabled: false
 
   main:
     persistence:

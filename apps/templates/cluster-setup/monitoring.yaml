@@ -1,0 +1,32 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: monitoring
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/paul2126/homelab.git
+    targetRevision: main
+    path: deployments/monitoring
+    helm:
+      releaseName: monitoring
+      valueFiles:
+        - values.yaml
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: monitoring
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      # The stack ships large VictoriaMetrics CRDs and big Grafana dashboard ConfigMaps; SSA
+      # avoids the client-side apply annotation size limit (262144 bytes).
+      - ServerSideApply=true
+      # VM CRs (VMSingle/VMAgent/VMServiceScrape/...) are applied alongside their CRDs on the
+      # first sync — don't hard-fail dry-run before the CRDs exist.
+      - SkipDryRunOnMissingResource=true

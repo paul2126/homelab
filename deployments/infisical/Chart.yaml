@@ -1,0 +1,10 @@
+apiVersion: v2
+name: infisical
+description: Infisical secrets manager (umbrella chart wrapping the upstream infisical-standalone chart)
+type: application
+version: 0.1.0
+
+dependencies:
+  - name: infisical-standalone
+    version: 1.9.0
+    repository: https://dl.cloudsmith.io/public/infisical/helm-charts/helm/charts/

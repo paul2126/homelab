@@ -1,0 +1,26 @@
+# Exposes Infisical via the shared homelab Envoy gateway (:80) at http://infisical.attat.org/
+# (DNS A-record infisical.attat.org -> 192.168.1.129). The app Service is pinned to `infisical`
+# via infisical.fullnameOverride; its Service port is 8080. SITE_URL in the infisical-secrets
+# secret must match this URL. TLS is a later add-on (an HTTPS:443 listener on the gateway).
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: infisical
+spec:
+  parentRefs:
+    - group: gateway.networking.k8s.io
+      kind: Gateway
+      name: homelab-gateway
+      namespace: envoy-gateway-system
+  hostnames:
+    - infisical.attat.org
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /
+      backendRefs:
+        - group: ""
+          kind: Service
+          name: infisical
+          port: 8080

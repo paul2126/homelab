@@ -1,0 +1,47 @@
+# Values for the upstream victoria-metrics-k8s-stack subchart are nested under its dependency
+# name. This one chart provides the whole monitoring stack: vmsingle (TSDB) + vmagent (scraper)
+# + vmalert + alertmanager + Grafana + node-exporter + kube-state-metrics + the VM operator.
+# Grafana is bundled and enabled by default, with the VictoriaMetrics datasource auto-wired.
+victoria-metrics-k8s-stack:
+  # Single-node homelab: persist the TSDB on local-path with a 30-day retention.
+  vmsingle:
+    spec:
+      retentionPeriod: "30d"
+      storage:
+        accessModes:
+          - ReadWriteOnce
+        storageClassName: local-path
+        resources:
+          requests:
+            storage: 20Gi
+
+  # The VM operator converts prometheus-operator ServiceMonitors by default, but we don't ship
+  # the prometheus CRDs — GPU (DCGM) scraping is done with a native VMServiceScrape instead
+  # (templates/vmservicescrape-dcgm.yaml). The operator's admission webhook is disabled because
+  # its runtime-managed TLS cert + caBundle injection churns under ArgoCD (perpetual OutOfSync);
+  # we author the VM CRs in-repo, so server-side validation isn't needed here.
+  victoria-metrics-operator:
+    admissionWebhooks:
+      enabled: false
+
+  grafana:
+    enabled: true
+    # Deterministic Service name `grafana` (else it'd be <release>-grafana) for the HTTPRoute.
+    fullnameOverride: grafana
+    service:
+      type: ClusterIP
+      port: 80
+    # Admin credentials come from a pre-created secret (see README "Secrets").
+    admin:
+      existingSecret: grafana-admin
+      userKey: admin-user
+      passwordKey: admin-password
+    persistence:
+      enabled: true
+      type: pvc
+      storageClassName: local-path
+      size: 2Gi
+    # The NVIDIA DCGM dashboard (grafana.com ID 12239) is delivered as a ConfigMap picked up by
+    # the stack's dashboard sidecar (templates/grafana-dashboard-dcgm.yaml) — the chart forbids
+    # combining the sidecar with grafana.dashboards/gnetId. Its datasource is pre-pinned to the
+    # VictoriaMetrics datasource, so it works offline (no grafana.com fetch at startup).
