@@ -348,6 +348,39 @@ or send the IP with a matching `Host:` header):
 
 > n8n was migrated off the old (unused) `className: cilium` Ingress to an HTTPRoute here.
 
+## Accessing the services
+
+Two LoadBalancer IPs are the entry points: **`192.168.1.128`** (ArgoCD, its own LB) and
+**`192.168.1.129`** (the shared Envoy gateway — every `*.attat.org` app).
+
+| Service | URL | Auth |
+|---------|-----|------|
+| ArgoCD | `https://192.168.1.128` | `admin` / your rotated password |
+| Grafana | `http://grafana.attat.org` | `admin` / `grafana-admin` secret |
+| n8n | `http://n8n.attat.org` | set on first visit |
+| Infisical | `http://infisical.attat.org` | create admin account on first visit |
+| Immich | `http://immich.attat.org` | create admin account on first visit |
+| vLLM (OpenAI API) | `http://192.168.1.129/v1/...` | none (in-cluster: `http://vllm-llama.vllm.svc.cluster.local:8000/v1`) |
+
+The `*.attat.org` names must resolve to `192.168.1.129`. Either add DNS A-records, or for quick
+local access add them to your client's `/etc/hosts`:
+
+```
+192.168.1.128 argocd.attat.org
+192.168.1.129 n8n.attat.org grafana.attat.org infisical.attat.org immich.attat.org vllm.attat.org
+```
+
+Without any DNS you can still hit the gateway by sending the `Host` header to the IP, e.g.
+`curl -H 'Host: grafana.attat.org' http://192.168.1.129/`.
+
+**Things not exposed through the gateway** (ClusterIP only) are reached with `kubectl port-forward`,
+e.g. the VictoriaMetrics VMUI:
+
+```bash
+kubectl -n monitoring port-forward svc/$(kubectl -n monitoring get svc -o name | grep vmsingle | head -1 | cut -d/ -f2) 8428:8428
+# then open http://localhost:8428/vmui
+```
+
 ## Network
 
 | Resource | IP / Range |

@@ -27,6 +27,49 @@
 
 ---
 
+## 0. Initial setup — creating these secrets from scratch
+
+If a secret doesn't exist yet (fresh cluster, or you deleted one to rotate it), create it as below.
+These must exist **before** the corresponding app syncs (the manual-sync apps won't sync until you
+trigger them, which gives you time). All values are random — record them in your password manager.
+
+```bash
+# --- monitoring: Grafana admin ---
+kubectl create namespace monitoring --dry-run=client -o yaml | kubectl apply -f -
+kubectl -n monitoring create secret generic grafana-admin \
+  --from-literal=admin-user=admin \
+  --from-literal=admin-password="$(openssl rand -hex 24)"
+
+# --- infisical: Postgres password (the SAME value is reused in DB_CONNECTION_URI below) ---
+kubectl create namespace infisical --dry-run=client -o yaml | kubectl apply -f -
+PGPW="$(openssl rand -hex 24)"
+kubectl -n infisical create secret generic infisical-postgresql \
+  --from-literal=password="$PGPW"
+
+# --- infisical: app secrets (loaded by the app via envFrom) ---
+#   ENCRYPTION_KEY : master key for everything Infisical stores — back it up, never rotate after use
+#   AUTH_SECRET    : signs session JWTs
+#   SITE_URL       : must match the HTTPRoute host (http until TLS is added)
+#   DB_CONNECTION_URI / REDIS_URL : point at the self-managed Postgres + Valkey in-cluster
+kubectl -n infisical create secret generic infisical-secrets \
+  --from-literal=ENCRYPTION_KEY="$(openssl rand -hex 16)" \
+  --from-literal=AUTH_SECRET="$(openssl rand -base64 32)" \
+  --from-literal=SITE_URL="http://infisical.attat.org" \
+  --from-literal=DB_CONNECTION_URI="postgresql://infisical:${PGPW}@infisical-postgresql:5432/infisicalDB?sslmode=disable" \
+  --from-literal=REDIS_URL="redis://infisical-redis:6379"
+```
+
+Then sync the `infisical` Application in ArgoCD. The ESO machine-identity secret
+(`infisical-universal-auth`) is created later, once Infisical itself is running — see §4.
+
+Verify what exists:
+```bash
+kubectl -n monitoring get secret grafana-admin
+kubectl -n infisical  get secret infisical-postgresql infisical-secrets
+```
+
+---
+
 ## 1. Grafana admin (`monitoring/grafana-admin`)
 
 The Grafana chart applies `admin-password` from the secret at pod startup, so rotating the secret
