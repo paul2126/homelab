@@ -1,0 +1,93 @@
+# Self-managed PostgreSQL for Immich. Immich requires a Postgres with a vector extension; the
+# official image ghcr.io/immich-app/postgres bundles VectorChord + pgvector and presets
+# shared_preload_libraries=vchord.so, so no manual postgresql.conf tuning is needed. Immich
+# connects via the DB_* env in values.yaml. Single instance, homelab. Stores only metadata
+# (faces/CLIP embeddings, albums) on local-path — the actual photos live on the NFS library.
+apiVersion: v1
+kind: Service
+metadata:
+  name: immich-postgresql
+  labels:
+    app.kubernetes.io/name: immich-postgresql
+    app.kubernetes.io/component: database
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: immich-postgresql
+  ports:
+    - name: postgres
+      port: 5432
+      targetPort: postgres
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: immich-postgresql
+  labels:
+    app.kubernetes.io/name: immich-postgresql
+    app.kubernetes.io/component: database
+spec:
+  serviceName: immich-postgresql
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: immich-postgresql
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: immich-postgresql
+        app.kubernetes.io/component: database
+    spec:
+      securityContext:
+        # postgres image runs as uid/gid 999; make the PVC group-writable.
+        fsGroup: 999
+      containers:
+        - name: postgres
+          image: ghcr.io/immich-app/postgres:16-vectorchord0.5.3-pgvector0.8.1
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: postgres
+              containerPort: 5432
+          env:
+            - name: POSTGRES_USER
+              value: immich
+            - name: POSTGRES_DB
+              value: immich
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: immich-postgresql
+                  key: password
+            # Immich's health/readiness benefits from the bundled tuning; use a subdir for PGDATA.
+            - name: PGDATA
+              value: /var/lib/postgresql/data/pgdata
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/postgresql/data
+          readinessProbe:
+            exec:
+              command: ["pg_isready", "-U", "immich", "-d", "immich"]
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 5
+          livenessProbe:
+            exec:
+              command: ["pg_isready", "-U", "immich", "-d", "immich"]
+            initialDelaySeconds: 30
+            periodSeconds: 15
+            timeoutSeconds: 5
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              memory: 2Gi
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        storageClassName: local-path
+        resources:
+          requests:
+            storage: 10Gi

@@ -1,0 +1,11 @@
+apiVersion: v2
+name: immich
+description: Immich self-hosted photo & video management (umbrella chart wrapping the upstream immich chart)
+type: application
+version: 0.1.0
+
+dependencies:
+  - name: immich
+    version: 0.12.0
+    # Upstream moved to OCI; the github.io HTTP repo is deprecated/stale.
+    repository: oci://ghcr.io/immich-app/immich-charts

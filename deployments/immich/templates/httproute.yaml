@@ -1,0 +1,27 @@
+# Exposes Immich via the shared homelab Envoy gateway (:80) at http://immich.attat.org/
+# (DNS A-record immich.attat.org -> 192.168.1.129). The server Service is `immich-server` on
+# :2283. Immich uses WebSockets (the Service marks appProtocol kubernetes.io/ws); Envoy proxies
+# them transparently. Large uploads: Envoy has no small default body limit like nginx, so no
+# extra annotation is needed here.
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: immich
+spec:
+  parentRefs:
+    - group: gateway.networking.k8s.io
+      kind: Gateway
+      name: homelab-gateway
+      namespace: envoy-gateway-system
+  hostnames:
+    - immich.attat.org
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /
+      backendRefs:
+        - group: ""
+          kind: Service
+          name: immich-server
+          port: 2283
