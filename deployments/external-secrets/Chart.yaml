@@ -1,0 +1,10 @@
+apiVersion: v2
+name: external-secrets
+description: External Secrets Operator + an Infisical ClusterSecretStore (umbrella chart wrapping the upstream external-secrets chart)
+type: application
+version: 0.1.0
+
+dependencies:
+  - name: external-secrets
+    version: 2.6.0
+    repository: https://charts.external-secrets.io

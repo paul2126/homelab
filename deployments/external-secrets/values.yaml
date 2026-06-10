@@ -1,0 +1,28 @@
+# ─────────────────────────────────────────────────────────────────────────────────────────
+# Umbrella-owned values (consumed by templates/clustersecretstore-infisical.yaml — NOT the ESO
+# subchart). The ClusterSecretStore is gated OFF until Infisical is set up, because it can't
+# authenticate until you (1) create an Infisical project, (2) create a Universal-Auth machine
+# identity and give it read access to that project, and (3) store its credentials in the
+# `infisical-universal-auth` secret in the external-secrets namespace. Then set enabled: true,
+# fill projectSlug/environmentSlug, and re-sync. See docs/secret-rotation.md / README.
+# ─────────────────────────────────────────────────────────────────────────────────────────
+infisical:
+  enabled: false
+  # Self-hosted Infisical API base URL — MUST include the /api suffix.
+  hostAPI: http://infisical.infisical.svc.cluster.local:8080/api
+  # Kubernetes secret (in the external-secrets namespace) holding the machine-identity creds.
+  authSecretName: infisical-universal-auth
+  authSecretNamespace: external-secrets
+  # Scope of secrets this store exposes.
+  projectSlug: "CHANGE_ME"      # Infisical project slug
+  environmentSlug: "prod"       # e.g. dev / staging / prod
+  secretsPath: "/"
+  recursive: false
+
+# ─────────────────────────────────────────────────────────────────────────────────────────
+# Values for the upstream external-secrets subchart are nested under its dependency name.
+# Defaults are already homelab-friendly (replicaCount 1, leaderElect false, built-in
+# cert-controller manages the webhook TLS — no cert-manager needed).
+# ─────────────────────────────────────────────────────────────────────────────────────────
+external-secrets:
+  installCRDs: true
