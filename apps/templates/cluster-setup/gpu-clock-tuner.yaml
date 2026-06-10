@@ -1,0 +1,21 @@
+# GPU clock tuner — pins the GPU to full clocks for steadier vLLM decode latency.
+# Plain manifests (directory source), manual sync like the rest of the cluster.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: gpu-clock-tuner
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/paul2126/homelab.git
+    targetRevision: main
+    path: deployments/gpu-clock-tuner
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: gpu-clock-tuner
+  syncPolicy:
+    syncOptions:
+      - CreateNamespace=true

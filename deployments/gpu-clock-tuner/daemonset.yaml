@@ -1,0 +1,64 @@
+# Pins the GPU to full clocks (persistence mode + locked graphics/memory clocks) so it doesn't
+# down-clock between token bursts — a small (~3-10%) decode-latency win for every vLLM request.
+# Plain manifests applied by an ArgoCD directory source (same pattern as cilium-lb).
+#
+# It reaches the GPU via the nvidia runtime + NVIDIA_VISIBLE_DEVICES=all (env), NOT the
+# `nvidia.com/gpu` device-plugin resource — so it does NOT consume the allocatable GPU and never
+# competes with vLLM for it. nvidia-smi clock changes are a driver-wide call; one pod is enough.
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: gpu-clock-tuner
+  namespace: gpu-clock-tuner
+  labels:
+    app.kubernetes.io/name: gpu-clock-tuner
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: gpu-clock-tuner
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: gpu-clock-tuner
+    spec:
+      runtimeClassName: nvidia
+      # Only schedule on GPU nodes (label set by the GPU Operator's feature discovery).
+      nodeSelector:
+        nvidia.com/gpu.present: "true"
+      # Combined with the nodeSelector above, this only ever lands on GPU nodes — tolerate any
+      # taints those nodes may carry.
+      tolerations:
+        - operator: Exists
+      containers:
+        - name: gpu-clock-tuner
+          image: nvidia/cuda:12.4.1-base-ubuntu22.04
+          securityContext:
+            privileged: true
+          env:
+            # Expose the GPU to nvidia-smi without taking the device-plugin allocatable resource.
+            - name: NVIDIA_VISIBLE_DEVICES
+              value: all
+            - name: NVIDIA_DRIVER_CAPABILITIES
+              value: utility
+          command: ["/bin/bash", "-c"]
+          args:
+            - |
+              set +e
+              apply() {
+                nvidia-smi -pm 1
+                MAXGR=$(nvidia-smi --query-gpu=clocks.max.graphics --format=csv,noheader,nounits | head -n1 | tr -d ' ')
+                [ -n "$MAXGR" ] && nvidia-smi -lgc "$MAXGR"                 # lock core clock high (GeForce Ampere supports -lgc)
+                MAXMEM=$(nvidia-smi --query-gpu=clocks.max.memory --format=csv,noheader,nounits | head -n1 | tr -d ' ')
+                [ -n "$MAXMEM" ] && nvidia-smi -lmc "$MAXMEM" 2>/dev/null   # best-effort memory clock lock (not all GeForce drivers support it)
+              }
+              echo "[gpu-clock-tuner] applying persistence + clock locks"
+              apply
+              nvidia-smi -q -d CLOCK | grep -A2 -i "Max Clocks" | head -5 || true
+              # Re-apply periodically in case the driver resets (e.g. after idle or a driver reload).
+              while true; do sleep 300; apply >/dev/null 2>&1; done
+          resources:
+            requests:
+              cpu: 10m
+              memory: 32Mi
+            limits:
+              memory: 64Mi
