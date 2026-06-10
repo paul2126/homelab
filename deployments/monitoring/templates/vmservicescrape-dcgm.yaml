@@ -1,0 +1,20 @@
+# Scrapes NVIDIA GPU metrics from the GPU Operator's dcgm-exporter into VictoriaMetrics.
+# The dcgm-exporter Service (port `gpu-metrics`/9400, label app=nvidia-dcgm-exporter) always
+# exists in the gpu-operator namespace regardless of the operator's serviceMonitor flag — so
+# we leave deployments/gpu-operator/values.yaml untouched and declare a native VMServiceScrape
+# here (the VM operator ships this CRD; no prometheus-operator CRD needed). vmagent discovers
+# VMServiceScrapes cluster-wide by default.
+apiVersion: operator.victoriametrics.com/v1beta1
+kind: VMServiceScrape
+metadata:
+  name: nvidia-dcgm-exporter
+spec:
+  namespaceSelector:
+    matchNames:
+      - gpu-operator
+  selector:
+    matchLabels:
+      app: nvidia-dcgm-exporter
+  endpoints:
+    - port: gpu-metrics
+      path: /metrics

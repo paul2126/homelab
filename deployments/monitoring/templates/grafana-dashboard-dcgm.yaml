@@ -1,0 +1,15 @@
+# NVIDIA DCGM Exporter dashboard (grafana.com ID 12239), delivered as a ConfigMap that the
+# stack's Grafana dashboard sidecar imports (label grafana_dashboard: "1"). The JSON is loaded
+# via .Files.Get so Helm does not evaluate the dashboard's Go-style legend placeholders.
+# Its datasource is pre-pinned to the VictoriaMetrics datasource (uid: VictoriaMetrics).
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-dashboard-dcgm
+  labels:
+    grafana_dashboard: "1"
+  annotations:
+    grafana_folder: "GPU"
+data:
+  nvidia-dcgm.json: |-
+{{ .Files.Get "dashboards/dcgm.json" | indent 4 }}
