@@ -1,0 +1,56 @@
+# Self-managed Valkey (Redis-compatible) for Infisical's queue/cache — replaces the chart's
+# bundled bitnamilegacy/redis. Infisical connects via REDIS_URL (redis://infisical-redis:6379)
+# in the infisical-secrets secret. In-cluster only, no auth, ephemeral (queue/cache, not a DB).
+apiVersion: v1
+kind: Service
+metadata:
+  name: infisical-redis
+  labels:
+    app.kubernetes.io/name: infisical-redis
+    app.kubernetes.io/component: cache
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: infisical-redis
+  ports:
+    - name: redis
+      port: 6379
+      targetPort: redis
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: infisical-redis
+  labels:
+    app.kubernetes.io/name: infisical-redis
+    app.kubernetes.io/component: cache
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: infisical-redis
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: infisical-redis
+        app.kubernetes.io/component: cache
+    spec:
+      containers:
+        - name: valkey
+          image: valkey/valkey:8-alpine
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: redis
+              containerPort: 6379
+          readinessProbe:
+            exec:
+              command: ["valkey-cli", "ping"]
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 5
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              memory: 256Mi

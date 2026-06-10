@@ -1,0 +1,31 @@
+# Values for the upstream infisical-standalone subchart are nested under its dependency name.
+infisical-standalone:
+  infisical:
+    # Deterministic Service/Deployment name `infisical` (else it'd be a long
+    # <release>-infisical-standalone-infisical) so the HTTPRoute backendRef is clean.
+    fullnameOverride: infisical
+    # Single-node homelab (chart default is 2).
+    replicaCount: 1
+    image:
+      tag: v0.158.0
+    # Secret holding ENCRYPTION_KEY / AUTH_SECRET / SITE_URL / DB_CONNECTION_URI / REDIS_URL.
+    # Pre-created out-of-band (see README "Secrets"); the app loads it via envFrom.
+    kubeSecretRef: infisical-secrets
+    service:
+      type: ClusterIP
+
+  # External access is an Envoy Gateway HTTPRoute (templates/httproute.yaml), not the chart's
+  # bundled NGINX. Disable both the Ingress and the ingress-nginx subchart.
+  ingress:
+    enabled: false
+    nginx:
+      enabled: false
+
+  # Use a self-managed Postgres (templates/postgres.yaml) + Valkey (templates/redis.yaml) on the
+  # official maintained images, instead of the chart's bundled bitnamilegacy Postgres/Redis
+  # (frozen, unpatched). The connection strings are supplied via the infisical-secrets secret
+  # (DB_CONNECTION_URI / REDIS_URL).
+  postgresql:
+    enabled: false
+  redis:
+    enabled: false

@@ -1,0 +1,28 @@
+# Infisical secrets manager. Manual sync (like n8n) because it depends on pre-created secrets
+# (infisical-secrets, infisical-postgresql) that must exist before the pods start.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: infisical
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/paul2126/homelab.git
+    targetRevision: main
+    path: deployments/infisical
+    helm:
+      releaseName: infisical
+      valueFiles:
+        - values.yaml
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: infisical
+  syncPolicy:
+    syncOptions:
+      - CreateNamespace=true
+      # The HTTPRoute needs the Gateway API CRD (from the envoy-gateway app) to exist first —
+      # don't hard-fail dry-run before then.
+      - SkipDryRunOnMissingResource=true
