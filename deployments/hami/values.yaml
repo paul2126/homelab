@@ -10,3 +10,13 @@ hami:
         registry: registry.k8s.io
         repository: kube-scheduler
         tag: "v1.34.0"
+
+  devicePlugin:
+    # Tell HAMi that GPU Operator manages the NVIDIA toolkit so it waits for the toolkit
+    # validation file before starting and uses the correct NVML library path.
+    gpuOperatorToolkitReady:
+      enabled: true
+      hostPath: "/run/nvidia/validations"
+    # GPU Operator installs the driver at /run/nvidia/driver on the host (not /usr/local/nvidia).
+    # HAMi needs this to find libnvidia-ml.so for GPU discovery.
+    nvidiaDriverRoot: "/run/nvidia/driver"
