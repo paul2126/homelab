@@ -19,5 +19,13 @@ gpu-operator:
   devicePlugin:
     enabled: false
 
+  # Enable CDI (Container Device Interface) so the toolkit generates spec files at
+  # /var/run/cdi/. HAMi's embedded nvidia-device-plugin uses CDI for GPU discovery
+  # because NVML isn't directly loadable inside the device-plugin container.
+  toolkit:
+    env:
+      - name: ENABLE_CDI
+        value: "true"
+
   # toolkit, nfd (node-feature-discovery), and gfd (GPU feature discovery) remain enabled —
   # they provide the nvidia containerd runtime and GPU node labels. HAMi handles the resource.
