@@ -19,5 +19,15 @@ gpu-operator:
   devicePlugin:
     enabled: false
 
+  # Force the nvidia-container-runtime to use legacy device-injection mode (directly mounts
+  # /dev/nvidia* and driver libs from the host) instead of auto mode. Auto mode picks up the
+  # management CDI spec that the toolkit always generates, then tries to inject
+  # management.nvidia.com/gpu=<UUID> — but that spec only has name=all, not per-UUID entries,
+  # so injection fails. Legacy mode bypasses CDI entirely.
+  toolkit:
+    env:
+      - name: NVIDIA_CONTAINER_RUNTIME_MODE
+        value: "legacy"
+
   # toolkit, nfd (node-feature-discovery), and gfd (GPU feature discovery) remain enabled —
   # they provide the nvidia containerd runtime and GPU node labels. HAMi handles the resource.

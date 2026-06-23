@@ -1,0 +1,74 @@
+# Jellyfin media server with NVENC hardware transcoding + CUDA HDR→SDR tone mapping.
+# Plain manifests applied by an ArgoCD directory source.
+# GPU is managed by HAMi (nvidia.com/gpumem); the nvidia RuntimeClass provides CUDA access.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: jellyfin
+  labels:
+    app.kubernetes.io/name: jellyfin
+spec:
+  replicas: 1
+  # Config PVC is ReadWriteOnce — only one pod can hold it at a time.
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: jellyfin
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: jellyfin
+    spec:
+      runtimeClassName: nvidia
+      containers:
+        - name: jellyfin
+          image: jellyfin/jellyfin:10.10.7
+          env:
+            # Expose video encode/decode (NVENC/NVDEC) + compute (CUDA tone mapping).
+            - name: NVIDIA_DRIVER_CAPABILITIES
+              value: video,compute,utility
+          ports:
+            - name: http
+              containerPort: 8096
+          resources:
+            requests:
+              cpu: "1"
+              memory: 2Gi
+            limits:
+              # HAMi slice: 1024 MiB covers NVENC frame buffers (~200 MB) + CUDA tone-mapping
+              # intermediate frames (~500 MB) with ~300 MB headroom.
+              # On a 12 GB GPU: vLLM=7168, Immich ML=2048, this=1024 → 10240 MiB total.
+              nvidia.com/gpumem: "1024"
+              memory: 4Gi
+          volumeMounts:
+            - name: config
+              mountPath: /config
+            - name: transcode
+              mountPath: /config/transcodes
+            # media volumeMount removed until TrueNAS NFS export is created.
+            # When ready: add media-pv.yaml + media-pvc.yaml back to kustomization.yaml,
+            # restore the media mount here (mountPath: /media, readOnly: true),
+            # and add the media PVC volume below.
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            periodSeconds: 30
+            failureThreshold: 5
+      volumes:
+        - name: config
+          persistentVolumeClaim:
+            claimName: jellyfin-config
+        - name: transcode
+          # Keep transcode temp files in RAM so they don't wear local storage and are
+          # automatically cleared on restart. 4 GB comfortably holds several concurrent
+          # NVENC transcode buffers.
+          emptyDir:
+            medium: Memory
+            sizeLimit: 4Gi

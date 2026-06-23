@@ -1,0 +1,20 @@
+# Static NFS PV for the media library on TrueNAS.
+# FILL IN server and path before syncing (same TrueNAS host as Immich, different export path).
+# Retain policy — removing the PVC never touches TrueNAS data.
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: jellyfin-media
+  labels:
+    app.kubernetes.io/name: jellyfin
+    app.kubernetes.io/component: media
+spec:
+  capacity:
+    storage: 10Ti           # nominal; NFS doesn't enforce it
+  accessModes:
+    - ReadOnlyMany
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: ""
+  nfs:
+    server: "192.168.1.21"
+    path: "CHANGE_ME"      # NFS export path on TrueNAS, e.g. /mnt/tank/media — set before re-adding to kustomization.yaml
