@@ -2,7 +2,12 @@
 argo-cd:
   server:
     service:
-      type: LoadBalancer
+      type: ClusterIP   # was LoadBalancer; now fronted by homelab-gateway via HTTPRoute
+  configs:
+    params:
+      # Serve plain HTTP so Envoy Gateway can proxy without TLS termination tricks.
+      # The gateway is the TLS boundary (once TLS is added); ArgoCD stays internal-only.
+      server.insecure: "true"
   # Unused components — disabled to save RAM (no SSO, no notifications).
   # (the applicationSet controller is a core component in this chart and can't be disabled.)
   dex:

@@ -26,3 +26,5 @@ spec:
       # argo-cd ships large CRDs; server-side apply avoids the kubectl
       # last-applied-configuration annotation size limit.
       - ServerSideApply=true
+      # HTTPRoute in templates/ needs Gateway API CRDs to already exist.
+      - SkipDryRunOnMissingResource=true
