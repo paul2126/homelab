@@ -19,8 +19,7 @@ hami:
       hostPath: "/run/nvidia/validations"
     # GPU Operator installs the driver at /run/nvidia/driver on the host.
     nvidiaDriverRoot: "/run/nvidia/driver"
-    # NVIDIA_VISIBLE_DEVICES=all tells the container toolkit to inject /dev/nvidia*
-    # and the NVML library stubs into the device-plugin container. Without this, the
-    # embedded nvidia-device-plugin can't load libnvidia-ml.so and GPU discovery fails.
-    extraEnvs:
-      NVIDIA_VISIBLE_DEVICES: "all"
+    # Use the nvidia RuntimeClass for the device plugin DaemonSet pod itself so the
+    # container toolkit injects /dev/nvidia* and libnvidia-ml.so into the containers.
+    # Without this, the embedded nvidia-device-plugin and vgpu-monitor can't load NVML.
+    runtimeClassName: "nvidia"
