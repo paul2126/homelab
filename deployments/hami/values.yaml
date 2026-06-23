@@ -17,10 +17,10 @@ hami:
     gpuOperatorToolkitReady:
       enabled: true
       hostPath: "/run/nvidia/validations"
-    # GPU Operator installs the driver at /run/nvidia/driver on the host. HAMi mounts it
-    # inside the container at /driver-root. The embedded nvidia-device-plugin needs
-    # LD_LIBRARY_PATH to find libnvidia-ml.so there for GPU discovery (auto strategy
-    # tries NVML first; without this env var it can't locate the library and fails).
+    # GPU Operator installs the driver at /run/nvidia/driver on the host.
     nvidiaDriverRoot: "/run/nvidia/driver"
+    # NVIDIA_VISIBLE_DEVICES=all tells the container toolkit to inject /dev/nvidia*
+    # and the NVML library stubs into the device-plugin container. Without this, the
+    # embedded nvidia-device-plugin can't load libnvidia-ml.so and GPU discovery fails.
     extraEnvs:
-      LD_LIBRARY_PATH: "/driver-root/usr/lib/x86_64-linux-gnu"
+      NVIDIA_VISIBLE_DEVICES: "all"
