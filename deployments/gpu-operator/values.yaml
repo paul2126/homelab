@@ -14,6 +14,10 @@ gpu-operator:
     serviceMonitor:
       enabled: false
 
-  # toolkit, devicePlugin, nfd (node-feature-discovery) and gfd (GPU feature discovery)
-  # are enabled by default — they provide the nvidia containerd runtime, the nvidia.com/gpu
-  # resource, and GPU node labels. This replaces the (parked) hami + nvidia-device-plugin.
+  # HAMi provides its own device plugin that advertises nvidia.com/gpumem / nvidia.com/gpucores
+  # for fractional GPU sharing. Disable the operator's plugin so they don't race.
+  devicePlugin:
+    enabled: false
+
+  # toolkit, nfd (node-feature-discovery), and gfd (GPU feature discovery) remain enabled —
+  # they provide the nvidia containerd runtime and GPU node labels. HAMi handles the resource.

@@ -1,6 +1,7 @@
 # vLLM serving Llama 3.1 8B Instruct (4-bit AWQ-INT4), OpenAI-compatible API on :8000.
 # Plain manifests applied by an ArgoCD directory source (same pattern as cilium-lb).
-# Tunables (model, context length, GPU memory) live in the container args below.
+# GPU memory is managed by HAMi (nvidia.com/gpumem) so the GPU is shared with other services.
+# Tunables (model, context length, VRAM slice) live in the container args and resources below.
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -21,8 +22,9 @@ spec:
       labels:
         app.kubernetes.io/name: vllm-llama
     spec:
-      # The GPU Operator's container-toolkit registers this RuntimeClass. If a CUDA error
-      # shows the GPU isn't visible in the pod, confirm the operator created it.
+      # nvidia RuntimeClass is still registered by the GPU Operator's container-toolkit.
+      # HAMi's device plugin intercepts scheduling and injects its vGPU library; the runtime
+      # itself remains nvidia so CUDA works normally inside the slice.
       runtimeClassName: nvidia
       containers:
         - name: vllm
@@ -31,21 +33,20 @@ spec:
             - --model
             - hugging-quants/Meta-Llama-3.1-8B-Instruct-AWQ-INT4   # open repo, no HF token
             - --quantization
-            - awq_marlin                                           # Marlin kernels (Ampere+); generic "awq" is ~10x slower (compute-bound dequant)
-            # Speculative decoding (EAGLE3 draft head) — the main per-request decode speedup
-            # (~1.5-2.5x): it accepts several tokens per weight-read, breaking the single-stream
-            # memory-bandwidth roofline. (vLLM 0.22.1's SpeculativeConfig has no disable_by_batch_size
-            # key — the V1 engine schedules speculation internally.) If EAGLE3 fails at boot on the
-            # AWQ target, swap the value to the zero-VRAM n-gram fallback:
-            #   {"method":"ngram","num_speculative_tokens":5,"prompt_lookup_max":4,"prompt_lookup_min":2}
-            - --speculative-config
-            - '{"method":"eagle3","model":"yuhuili/EAGLE3-LLaMA3.1-Instruct-8B","num_speculative_tokens":3}'
+            - awq_marlin                                           # Marlin kernels (Ampere+); generic "awq" is ~10x slower (compute-bound dequant). This IS the Int4 checkpoint.
+            # TUNED FOR CONCURRENT batched serving (receipt-OCR service: bulk uploads call Llama outside
+            # the OCR lock, so many requests share a batch). Continuous batching is on by default; the KV
+            # weight-read is amortised across the batch, so aggregate tok/s scales well past the ~65 tok/s
+            # single-stream roofline. EAGLE3 speculative decoding stays OFF: its FP16 draft head mispredicts
+            # the AWQ-INT4 target (acceptance only ~2/4) and competes for compute — a net loss here even
+            # under load. awq_marlin + continuous batching is the right combo for this GPU.
+            - --enforce-eager                                       # skip CUDA-graph capture (saves ~512 MB–1 GB of VRAM that graph capture pre-allocates across batch sizes)
             - --max-model-len
-            - "4096"                                               # was 8192; ≤4096 fits our requests → ~2x concurrency + KV headroom for the draft head
+            - "4096"                                               # receipts fit easily (~930 prompt + ≤1024 output)
             - --gpu-memory-utilization
-            - "0.95"                                               # was 0.90; reclaims the CUDA-graph profiler reservation (the log notes 0.90 ≈ effective 0.846)
+            - "0.90"                                               # 90% of the HAMi slice (not the whole GPU); remaining 10% is headroom so HAMi's limit isn't hit
             - --max-num-seqs
-            - "32"                                                 # was default 1024; right-size to KV capacity + shrink CUDA-graph capture (more free VRAM)
+            - "8"                                                  # low concurrency — VRAM slice is much smaller than the full GPU; KV pool is limited
             - --dtype
             - half
             - --served-model-name
@@ -58,7 +59,10 @@ spec:
               cpu: "2"
               memory: 6Gi      # the 8B model lives in GPU VRAM; host RAM is just the process
             limits:
-              nvidia.com/gpu: 1
+              # HAMi resource: fractional VRAM slice in MiB. AWQ-INT4 weights ~4.5 GB;
+              # 7168 MiB = 7 GB gives ~2.5 GB headroom for KV cache + CUDA context.
+              # Adjust based on your GPU's total VRAM (e.g. 8192 on a 12 GB card).
+              nvidia.com/gpumem: "7168"
               memory: 10Gi
           volumeMounts:
             - name: hf-cache
