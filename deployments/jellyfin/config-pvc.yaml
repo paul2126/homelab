@@ -1,0 +1,15 @@
+# Jellyfin config: database, metadata, images, plugin state.
+# local-path is fine — this data is rebuilt from the media library if lost.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: jellyfin-config
+  labels:
+    app.kubernetes.io/name: jellyfin
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: local-path
+  resources:
+    requests:
+      storage: 10Gi

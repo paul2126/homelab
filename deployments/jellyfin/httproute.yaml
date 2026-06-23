@@ -1,0 +1,28 @@
+# Exposes Jellyfin via the shared homelab Envoy gateway at http://jellyfin.attat.org/
+# (DNS A-record jellyfin.attat.org -> gateway IP, same as immich.attat.org).
+# Video streams are long-lived HTTP connections; timeouts are set to 4 h.
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: jellyfin
+spec:
+  parentRefs:
+    - group: gateway.networking.k8s.io
+      kind: Gateway
+      name: homelab-gateway
+      namespace: envoy-gateway-system
+  hostnames:
+    - jellyfin.attat.org
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /
+      backendRefs:
+        - group: ""
+          kind: Service
+          name: jellyfin
+          port: 8096
+      timeouts:
+        request: "14400s"
+        backendRequest: "14400s"

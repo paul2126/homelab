@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: jellyfin-media
+  labels:
+    app.kubernetes.io/name: jellyfin
+    app.kubernetes.io/component: media
+spec:
+  accessModes:
+    - ReadOnlyMany
+  storageClassName: ""
+  volumeName: jellyfin-media
+  resources:
+    requests:
+      storage: 10Ti
