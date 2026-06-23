@@ -23,3 +23,6 @@ spec:
       - ServerSideApply=true
       # GatewayClass/Gateway/EnvoyProxy CRs are applied alongside their CRDs.
       - SkipDryRunOnMissingResource=true
+      # Force ArgoCD to own the externalTrafficPolicy field; otherwise the Envoy Gateway
+      # controller owns it (SSA conflict) and reverts it to Local on every reconcile.
+      - ServerSideApplyForce=true
